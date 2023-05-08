@@ -295,61 +295,7 @@ private:
     // access, providing a significant speed boost. Downside: Server/DXVK crashes are currently not recoverable.
     useSharedHeap = bridge_util::Config::getOption<bool>("useSharedHeap", true);
 
-    // Parse shared heap policy config only when we actually use shared heap
-    if (useSharedHeap) {
-      auto sharedHeapPolicyStr = bridge_util::Config::getOption<std::vector<std::string>>(
-        "sharedHeapPolicy", std::vector<std::string>{"Textures", "StaticBuffers", "DynamicBuffers"});
-
-      // Use for everything by default when using shared heap
-      sharedHeapPolicy = sharedHeapPolicyStr.empty() ?
-        SharedHeapPolicy::All : SharedHeapPolicy::None;
-
-      bool bPolicyTextures = false, bPolicyDynamicBufs = false, bPolicyStaticBufs = false;
-      for (auto& policyStr : sharedHeapPolicyStr) {
-        if (policyStr == "Textures") {
-          sharedHeapPolicy |= SharedHeapPolicy::Textures;
-          bPolicyTextures = true;
-        } else if (policyStr == "DynamicBuffers") {
-          sharedHeapPolicy |= SharedHeapPolicy::DynamicBuffers;
-          bPolicyDynamicBufs = true;
-        }  else if (policyStr == "StaticBuffers") {
-          sharedHeapPolicy |= SharedHeapPolicy::StaticBuffers;
-          bPolicyStaticBufs = true;
-        }else {
-          bridge_util::Logger::warn("Unknown shared heap policy string: " + policyStr);
-        }
-
-        const bool bUseShadowMemoryForDynamicBuffers =
-          bridge_util::Config::getOption<bool>("useShadowMemoryForDynamicBuffers", false);
-        const bool bSharedHeapDynamicBufferPolicy = sharedHeapPolicy & SharedHeapPolicy::DynamicBuffers;
-        if(bUseShadowMemoryForDynamicBuffers == bSharedHeapDynamicBufferPolicy) {
-          std::stringstream ss;
-          ss << "SharedHeap dynamic buffer policy: [" << ((bSharedHeapDynamicBufferPolicy) ? "True" : "False") << "]";
-          ss << "superceded by useShadowMemoryForDynamicBuffers config setting: [" << ((bUseShadowMemoryForDynamicBuffers) ? "True" : "False") << "]";
-          bridge_util::Logger::info(ss.str());
-          sharedHeapPolicy ^= SharedHeapPolicy::DynamicBuffers; // If 1, becomes 0; If 0, becomes 1
-          bPolicyDynamicBufs = sharedHeapPolicy & SharedHeapPolicy::DynamicBuffers;
-        }
-      }
-      std::stringstream ss;
-      ss << "SharedHeap policy: ";
-      if(!bPolicyTextures && !bPolicyDynamicBufs && !bPolicyStaticBufs) {
-        ss << "NONE";
-      } else {
-        if(bPolicyTextures) {
-          ss << "TEXTURES, ";
-        }
-        if(bPolicyDynamicBufs) {
-          ss << "DYNAMIC BUFFERS, ";
-        }
-        if(bPolicyStaticBufs) {
-          ss << "STATIC BUFFERS";
-        }
-      }
-      bridge_util::Logger::info(ss.str());
-    } else {
-      sharedHeapPolicy = SharedHeapPolicy::None;
-    }
+    initSharedHeapPolicy();
 
     // The SharedHeap is actually divvied up into multiple "segments":shared memory file mappings
     // This is that unit size
@@ -366,6 +312,8 @@ private:
     // Thread-safety policy: 0 - use client's choice, 1 - force thread-safe, 2 - force non-thread-safe
     threadSafetyPolicy = bridge_util::Config::getOption<uint32_t>("threadSafetyPolicy", 0);
   }
+
+  void initSharedHeapPolicy();
 
   static GlobalOptions& get() {
     static GlobalOptions instance;

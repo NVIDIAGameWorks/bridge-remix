@@ -194,10 +194,6 @@ public:
     return get().threadSafetyPolicy;
   }
 
-  static const bool getUseShadowMemoryForDynamicBuffers() {
-    return get().useShadowMemoryForDynamicBuffers;
-  }
-
   static const uint32_t getServerSyncFlags() {
     uint32_t flags = 0;
     // The order of these flags needs to be read out in the same order
@@ -319,6 +315,17 @@ private:
         } else {
           bridge_util::Logger::warn("Unknown shared heap policy string: " + policyStr);
         }
+
+        const bool bUseShadowMemoryForDynamicBuffers =
+          bridge_util::Config::getOption<bool>("useShadowMemoryForDynamicBuffers", false);
+        const bool bSharedHeapDynamicBufferPolicy = sharedHeapPolicy & SharedHeapPolicyBits::UseForDynamicBuffers;
+        if(bUseShadowMemoryForDynamicBuffers == bSharedHeapDynamicBufferPolicy) {
+          std::stringstream ss;
+          ss << "SharedHeap dynamic buffer policy: [" << ((bSharedHeapDynamicBufferPolicy) ? "True" : "False") << "]";
+          ss << "overwritten by useShadowMemoryForDynamicBuffers config setting: [" << ((bUseShadowMemoryForDynamicBuffers) ? "True" : "False") << "]";
+          bridge_util::Logger::info(ss.str());
+          sharedHeapPolicy ^= SharedHeapPolicyBits::UseForDynamicBuffers; // If 1, becomes 0; If 0, becomes 1
+        }
       }
     } else {
       sharedHeapPolicy = SharedHeapPolicyBits::DoNotUse;
@@ -326,7 +333,7 @@ private:
 
     // The SharedHeap is actually divvied up into multiple "segments":shared memory file mappings
     // This is that unit size
-    static constexpr uint32_t kDefaultSharedHeapSegmentSize = 16 << 20; // 16MB
+    static constexpr uint32_t kDefaultSharedHeapSegmentSize = 128 << 20; // 128MB
     sharedHeapDefaultSegmentSize = bridge_util::Config::getOption<uint32_t>("sharedHeapDefaultSegmentSize", kDefaultSharedHeapSegmentSize);
 
     // "shared heap chunk" size. Fundamental allocation unit size.
@@ -338,9 +345,6 @@ private:
 
     // Thread-safety policy: 0 - use client's choice, 1 - force thread-safe, 2 - force non-thread-safe
     threadSafetyPolicy = bridge_util::Config::getOption<uint32_t>("threadSafetyPolicy", 0);
-
-    // Use shadow host memory for dynamic buffers
-    useShadowMemoryForDynamicBuffers = bridge_util::Config::getOption<bool>("useShadowMemoryForDynamicBuffers", false);
   }
 
   static GlobalOptions& get() {
@@ -378,5 +382,4 @@ private:
   uint32_t sharedHeapChunkSize;
   uint32_t sharedHeapFreeChunkWaitTimeout;
   uint32_t threadSafetyPolicy;
-  bool useShadowMemoryForDynamicBuffers;
 };

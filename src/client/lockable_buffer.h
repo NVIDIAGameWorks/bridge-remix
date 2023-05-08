@@ -46,8 +46,8 @@ class LockableBuffer: public Direct3DResource9_LSS<T> {
   };
   std::queue<LockInfo> m_lockInfos;
 
+  const bool m_bUseSharedHeap = false;
   std::unique_ptr<uint8_t[]> m_shadow;
-  bool m_bUseSharedHeap = false;
   inline static size_t g_totalBufferShadow = 0;
 
 public:
@@ -56,19 +56,13 @@ public:
   }
 
 private:
-  void applyPolicy() {
+  static bool getSharedHeapPolicy(const DescType& desc) {
     if (GlobalOptions::getUseSharedHeap()) {
-      if ((m_desc.Usage & D3DUSAGE_DYNAMIC) != 0) {
-        // useShadowMemoryForDynamicBuffers supersedes shared heap use
-        m_bUseSharedHeap =
-          GlobalOptions::getUseSharedHeapForDynamicBuffers() &&
-          !GlobalOptions::getUseShadowMemoryForDynamicBuffers();
-      } else {
-        m_bUseSharedHeap = GlobalOptions::getUseSharedHeapForStaticBuffers();
-      }
-    }
-    if (!m_bUseSharedHeap) {
-      initShadowMem();
+      return (desc.Usage & D3DUSAGE_DYNAMIC) ?
+        GlobalOptions::getUseSharedHeapForDynamicBuffers() :
+        GlobalOptions::getUseSharedHeapForStaticBuffers();
+    } else {
+      return false;
     }
   }
 
@@ -87,8 +81,11 @@ protected:
 
   LockableBuffer(T* const pD3dBuf, BaseDirect3DDevice9Ex_LSS* const pDevice, const DescType& desc)
     : Direct3DResource9_LSS<T>(pD3dBuf, pDevice)
-    , m_desc(desc) {
-    applyPolicy();
+    , m_desc(desc)
+    , m_bUseSharedHeap(getSharedHeapPolicy(m_desc)) {
+    if (!m_bUseSharedHeap) {
+      initShadowMem();
+    }
   }
 
   ~LockableBuffer() {

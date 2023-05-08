@@ -293,7 +293,7 @@ private:
     // Rather than copying an entire index/vertex/etc. buffer on every buffer-type Unlock(), the bridge instead
     // directly stores all buffer data into a shared memory "heap" that both Client and Server are able to
     // access, providing a significant speed boost. Downside: Server/DXVK crashes are currently not recoverable.
-    useSharedHeap = bridge_util::Config::getOption<bool>("useSharedHeap", true);
+    useSharedHeap = bridge_util::Config::getOption<bool>("useSharedHeap", false);
 
     initSharedHeapPolicy();
 

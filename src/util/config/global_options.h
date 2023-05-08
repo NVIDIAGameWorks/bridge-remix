@@ -30,13 +30,15 @@
 #include <vector>
 
 class GlobalOptions {
-  enum SharedHeapPolicyBits: uint32_t {
-    DoNotUse             = 0,
-    UseForTextures       = 1<<0,
-    UseForDynamicBuffers = 1<<1,
-    UseForStaticBuffers  = 1<<2,
+  enum SharedHeapPolicy: uint32_t {
+    Textures       = 1<<0,
+    DynamicBuffers = 1<<1,
+    StaticBuffers  = 1<<2,
 
-    UseForEverything     = UseForTextures + UseForDynamicBuffers + UseForStaticBuffers,
+    BuffersOnly    = DynamicBuffers | StaticBuffers,
+
+    None           = 0,
+    All            = Textures | DynamicBuffers | StaticBuffers,
   };
 
 public:
@@ -163,15 +165,15 @@ public:
   }
 
   static bool getUseSharedHeapForTextures() {
-    return (get().sharedHeapPolicy & SharedHeapPolicyBits::UseForTextures) != 0;
+    return (get().sharedHeapPolicy & SharedHeapPolicy::Textures) != 0;
   }
 
   static bool getUseSharedHeapForDynamicBuffers() {
-    return (get().sharedHeapPolicy & SharedHeapPolicyBits::UseForDynamicBuffers) != 0;
+    return (get().sharedHeapPolicy & SharedHeapPolicy::DynamicBuffers) != 0;
   }
 
   static bool getUseSharedHeapForStaticBuffers() {
-    return (get().sharedHeapPolicy & SharedHeapPolicyBits::UseForStaticBuffers) != 0;
+    return (get().sharedHeapPolicy & SharedHeapPolicy::StaticBuffers) != 0;
   }
 
   static const uint32_t getSharedHeapDefaultSegmentSize() {
@@ -192,10 +194,6 @@ public:
 
   static uint32_t getThreadSafetyPolicy() {
     return get().threadSafetyPolicy;
-  }
-
-  static const bool getUseShadowMemoryForDynamicBuffers() {
-    return get().useShadowMemoryForDynamicBuffers;
   }
 
   static const uint32_t getServerSyncFlags() {
@@ -295,38 +293,13 @@ private:
     // Rather than copying an entire index/vertex/etc. buffer on every buffer-type Unlock(), the bridge instead
     // directly stores all buffer data into a shared memory "heap" that both Client and Server are able to
     // access, providing a significant speed boost. Downside: Server/DXVK crashes are currently not recoverable.
-    useSharedHeap = bridge_util::Config::getOption<bool>("useSharedHeap", true);
+    useSharedHeap = bridge_util::Config::getOption<bool>("useSharedHeap", false);
 
-    // Parse shared heap policy config only when we actually use shared heap
-    if (useSharedHeap) {
-      auto sharedHeapPolicyStr = bridge_util::Config::getOption<std::vector<std::string>>(
-        "sharedHeapPolicy", std::vector<std::string>{"Textures", "StaticBuffers", "DynamicBuffers"});
-
-      // Use for everything by default when using shared heap
-      sharedHeapPolicy = sharedHeapPolicyStr.empty() ?
-        SharedHeapPolicyBits::UseForEverything : SharedHeapPolicyBits::DoNotUse;
-
-      for (auto& policyStr : sharedHeapPolicyStr) {
-        if (policyStr == "Textures") {
-          sharedHeapPolicy |= SharedHeapPolicyBits::UseForTextures;
-          bridge_util::Logger::info("Using shared heap for textures.");
-        } else if (policyStr == "StaticBuffers") {
-          sharedHeapPolicy |= SharedHeapPolicyBits::UseForStaticBuffers;
-          bridge_util::Logger::info("Using shared heap for static buffers.");
-        } else if (policyStr == "DynamicBuffers") {
-          sharedHeapPolicy |= SharedHeapPolicyBits::UseForDynamicBuffers;
-          bridge_util::Logger::info("Using shared heap for dynamic buffers.");
-        } else {
-          bridge_util::Logger::warn("Unknown shared heap policy string: " + policyStr);
-        }
-      }
-    } else {
-      sharedHeapPolicy = SharedHeapPolicyBits::DoNotUse;
-    }
+    initSharedHeapPolicy();
 
     // The SharedHeap is actually divvied up into multiple "segments":shared memory file mappings
     // This is that unit size
-    static constexpr uint32_t kDefaultSharedHeapSegmentSize = 16 << 20; // 16MB
+    static constexpr uint32_t kDefaultSharedHeapSegmentSize = 256 << 20; // 256MB
     sharedHeapDefaultSegmentSize = bridge_util::Config::getOption<uint32_t>("sharedHeapDefaultSegmentSize", kDefaultSharedHeapSegmentSize);
 
     // "shared heap chunk" size. Fundamental allocation unit size.
@@ -338,10 +311,9 @@ private:
 
     // Thread-safety policy: 0 - use client's choice, 1 - force thread-safe, 2 - force non-thread-safe
     threadSafetyPolicy = bridge_util::Config::getOption<uint32_t>("threadSafetyPolicy", 0);
-
-    // Use shadow host memory for dynamic buffers
-    useShadowMemoryForDynamicBuffers = bridge_util::Config::getOption<bool>("useShadowMemoryForDynamicBuffers", false);
   }
+
+  void initSharedHeapPolicy();
 
   static GlobalOptions& get() {
     static GlobalOptions instance;
@@ -378,5 +350,4 @@ private:
   uint32_t sharedHeapChunkSize;
   uint32_t sharedHeapFreeChunkWaitTimeout;
   uint32_t threadSafetyPolicy;
-  bool useShadowMemoryForDynamicBuffers;
 };

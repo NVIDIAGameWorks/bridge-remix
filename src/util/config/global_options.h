@@ -299,7 +299,7 @@ private:
 
     // The SharedHeap is actually divvied up into multiple "segments":shared memory file mappings
     // This is that unit size
-    static constexpr uint32_t kDefaultSharedHeapSegmentSize = 128 << 20; // 128MB
+    static constexpr uint32_t kDefaultSharedHeapSegmentSize = 256 << 20; // 256MB
     sharedHeapDefaultSegmentSize = bridge_util::Config::getOption<uint32_t>("sharedHeapDefaultSegmentSize", kDefaultSharedHeapSegmentSize);
 
     // "shared heap chunk" size. Fundamental allocation unit size.

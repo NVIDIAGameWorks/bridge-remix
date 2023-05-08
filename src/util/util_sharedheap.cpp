@@ -222,8 +222,6 @@ SharedHeap::Instance::findAllocation(const size_t numChunks) {
   if (bFirstAllocation) {
     return createAllocation(0, numChunks);
   } else {
-    constexpr size_t kMaxNotifications = 1;
-    constexpr size_t kAttemptIncrease = 2;
     size_t nFailedIterations = 0;
     bool bTimedOut = false;
     const auto timeoutStart = GetTickCount64();
@@ -232,20 +230,15 @@ SharedHeap::Instance::findAllocation(const size_t numChunks) {
           isValidAllocation(alloc = findFreeOnEnd(numChunks))) {
         break;
       }
-      nFailedIterations++;
-      if (nFailedIterations < kMaxNotifications) {
+      if (nFailedIterations == 1) {
         std::stringstream ss;
-        ss << "[SharedHeap][findAllocation] Could not find ";
+        ss << "[SharedHeap][findAllocation] Unable to allocate ";
         ss << bridge_util::toByteUnitString(numChunks * m_chunkSize);
-        ss << " free bytes. Trying again...";
-        Logger::debug(ss.str());
-      } else if (nFailedIterations == kMaxNotifications) {
-        std::stringstream ss;
-        ss << "[SharedHeap][findAllocation] Still unable to allocate ";
-        ss << bridge_util::toByteUnitString(numChunks * m_chunkSize);
-        ss << " bytes. Will continue retrying until timeout...";
+        ss << ". Will continue retrying until timeout...";
         Logger::warn(ss.str());
       }
+      freeDeallocations();
+      constexpr size_t kAttemptIncrease = 2;
       if (nFailedIterations == kAttemptIncrease) {
         Logger::info("[SharedHeap][findAllocation] Attempting to increase SharedHeap size.");
         if (addNewHeapSegment()) {
@@ -257,10 +250,10 @@ SharedHeap::Instance::findAllocation(const size_t numChunks) {
           Logger::err("[SharedHeap][findAllocation] Failed to increase SharedHeap size.");
         }
       }
-      freeDeallocations();
       const auto dt = GetTickCount64() - timeoutStart;
       bTimedOut =
         dt / 1000 >= GlobalOptions::getSharedHeapFreeChunkWaitTimeout();
+      nFailedIterations++;
     } while (!bTimedOut);
     if (bTimedOut) {
       Logger::err("[SharedHeap][findAllocation] Timeout!");

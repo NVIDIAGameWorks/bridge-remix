@@ -74,7 +74,7 @@ namespace ClientOptions {
 
   inline bool getEnableDpiAwareness() {
     static const bool enableDpiAwareness =
-      bridge_util::Config::getOption<bool>("client.enableDpiAwareness", false);
+      bridge_util::Config::getOption<bool>("client.enableDpiAwareness", true);
     return enableDpiAwareness;
   }
 }

@@ -30,13 +30,15 @@
 #include <vector>
 
 class GlobalOptions {
-  enum SharedHeapPolicyBits: uint32_t {
-    DoNotUse             = 0,
-    UseForTextures       = 1<<0,
-    UseForDynamicBuffers = 1<<1,
-    UseForStaticBuffers  = 1<<2,
+  enum SharedHeapPolicy: uint32_t {
+    Textures       = 1<<0,
+    DynamicBuffers = 1<<1,
+    StaticBuffers  = 1<<2,
 
-    UseForEverything     = UseForTextures + UseForDynamicBuffers + UseForStaticBuffers,
+    BuffersOnly    = DynamicBuffers | StaticBuffers,
+
+    None           = 0,
+    All            = Textures | DynamicBuffers | StaticBuffers,
   };
 
 public:
@@ -163,15 +165,15 @@ public:
   }
 
   static bool getUseSharedHeapForTextures() {
-    return (get().sharedHeapPolicy & SharedHeapPolicyBits::UseForTextures) != 0;
+    return (get().sharedHeapPolicy & SharedHeapPolicy::Textures) != 0;
   }
 
   static bool getUseSharedHeapForDynamicBuffers() {
-    return (get().sharedHeapPolicy & SharedHeapPolicyBits::UseForDynamicBuffers) != 0;
+    return (get().sharedHeapPolicy & SharedHeapPolicy::DynamicBuffers) != 0;
   }
 
   static bool getUseSharedHeapForStaticBuffers() {
-    return (get().sharedHeapPolicy & SharedHeapPolicyBits::UseForStaticBuffers) != 0;
+    return (get().sharedHeapPolicy & SharedHeapPolicy::StaticBuffers) != 0;
   }
 
   static const uint32_t getSharedHeapDefaultSegmentSize() {
@@ -300,35 +302,53 @@ private:
 
       // Use for everything by default when using shared heap
       sharedHeapPolicy = sharedHeapPolicyStr.empty() ?
-        SharedHeapPolicyBits::UseForEverything : SharedHeapPolicyBits::DoNotUse;
+        SharedHeapPolicy::All : SharedHeapPolicy::None;
 
+      bool bPolicyTextures = false, bPolicyDynamicBufs = false, bPolicyStaticBufs = false;
       for (auto& policyStr : sharedHeapPolicyStr) {
         if (policyStr == "Textures") {
-          sharedHeapPolicy |= SharedHeapPolicyBits::UseForTextures;
-          bridge_util::Logger::info("Using shared heap for textures.");
-        } else if (policyStr == "StaticBuffers") {
-          sharedHeapPolicy |= SharedHeapPolicyBits::UseForStaticBuffers;
-          bridge_util::Logger::info("Using shared heap for static buffers.");
+          sharedHeapPolicy |= SharedHeapPolicy::Textures;
+          bPolicyTextures = true;
         } else if (policyStr == "DynamicBuffers") {
-          sharedHeapPolicy |= SharedHeapPolicyBits::UseForDynamicBuffers;
-          bridge_util::Logger::info("Using shared heap for dynamic buffers.");
-        } else {
+          sharedHeapPolicy |= SharedHeapPolicy::DynamicBuffers;
+          bPolicyDynamicBufs = true;
+        }  else if (policyStr == "StaticBuffers") {
+          sharedHeapPolicy |= SharedHeapPolicy::StaticBuffers;
+          bPolicyStaticBufs = true;
+        }else {
           bridge_util::Logger::warn("Unknown shared heap policy string: " + policyStr);
         }
 
         const bool bUseShadowMemoryForDynamicBuffers =
           bridge_util::Config::getOption<bool>("useShadowMemoryForDynamicBuffers", false);
-        const bool bSharedHeapDynamicBufferPolicy = sharedHeapPolicy & SharedHeapPolicyBits::UseForDynamicBuffers;
+        const bool bSharedHeapDynamicBufferPolicy = sharedHeapPolicy & SharedHeapPolicy::DynamicBuffers;
         if(bUseShadowMemoryForDynamicBuffers == bSharedHeapDynamicBufferPolicy) {
           std::stringstream ss;
           ss << "SharedHeap dynamic buffer policy: [" << ((bSharedHeapDynamicBufferPolicy) ? "True" : "False") << "]";
-          ss << "overwritten by useShadowMemoryForDynamicBuffers config setting: [" << ((bUseShadowMemoryForDynamicBuffers) ? "True" : "False") << "]";
+          ss << "superceded by useShadowMemoryForDynamicBuffers config setting: [" << ((bUseShadowMemoryForDynamicBuffers) ? "True" : "False") << "]";
           bridge_util::Logger::info(ss.str());
-          sharedHeapPolicy ^= SharedHeapPolicyBits::UseForDynamicBuffers; // If 1, becomes 0; If 0, becomes 1
+          sharedHeapPolicy ^= SharedHeapPolicy::DynamicBuffers; // If 1, becomes 0; If 0, becomes 1
+          bPolicyDynamicBufs = sharedHeapPolicy & SharedHeapPolicy::DynamicBuffers;
         }
       }
+      std::stringstream ss;
+      ss << "SharedHeap policy: ";
+      if(!bPolicyTextures && !bPolicyDynamicBufs && !bPolicyStaticBufs) {
+        ss << "NONE";
+      } else {
+        if(bPolicyTextures) {
+          ss << "TEXTURES, ";
+        }
+        if(bPolicyDynamicBufs) {
+          ss << "DYNAMIC BUFFERS, ";
+        }
+        if(bPolicyStaticBufs) {
+          ss << "STATIC BUFFERS";
+        }
+      }
+      bridge_util::Logger::info(ss.str());
     } else {
-      sharedHeapPolicy = SharedHeapPolicyBits::DoNotUse;
+      sharedHeapPolicy = SharedHeapPolicy::None;
     }
 
     // The SharedHeap is actually divvied up into multiple "segments":shared memory file mappings

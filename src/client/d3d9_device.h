@@ -75,6 +75,10 @@ public:
     initImplicitObjects(presParams);
     ResetState();
 
+    if (!(createParams.BehaviorFlags & D3DCREATE_FPU_PRESERVE)) {
+      setupFPU();
+    }
+
     // These are immutable so collect them once and re-use
     internalGetDeviceCaps(&m_caps);
   }
@@ -235,5 +239,6 @@ private:
   void destroyImplicitObjects();
   template<typename T>
   HRESULT UpdateTextureImpl(IDirect3DBaseTexture9* pSourceTexture, IDirect3DBaseTexture9* pDestinationTexture);
+  void setupFPU();
 };
 

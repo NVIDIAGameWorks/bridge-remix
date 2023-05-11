@@ -3471,6 +3471,23 @@ void Direct3DDevice9Ex_LSS<EnableSync>::destroyImplicitObjects() {
   --m_implicitRefCnt;
 }
 
+template<bool EnableSync>
+void Direct3DDevice9Ex_LSS<EnableSync>::setupFPU() {
+  // Should match d3d9 float behaviour.
+
+  // For MSVC we can use these cross arch and platform funcs to set the FPU.
+  // This will work on any platform, x86, x64, ARM, etc.
+
+  // Clear exceptions.
+  _clearfp();
+
+  // Disable exceptions
+  _controlfp(_MCW_EM, _MCW_EM);
+
+  // Round to nearest
+  _controlfp(_RC_NEAR, _MCW_RC);
+}
+
 // Always instantiate non-syncable variant
 template class Direct3DDevice9Ex_LSS<false>;
 

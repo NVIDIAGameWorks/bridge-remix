@@ -403,7 +403,6 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Reset(D3DPRESENT_PARAMETERS* pPresent
     // Reset all device state to default values and init implicit/internal objects
     ResetState();
     const auto presParam = Direct3DSwapChain9_LSS::sanitizePresentationParameters(*pPresentationParameters, getCreateParams());
-    initImplicitObjects(presParam);
     // Add a hook into this window if we don't already have it.
     setWinProc(presParam.hDeviceWindow);
     // Tell Server to do the Reset
@@ -411,6 +410,8 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Reset(D3DPRESENT_PARAMETERS* pPresent
       ClientMessage c(Commands::IDirect3DDevice9Ex_Reset, getId());
       c.send_data(sizeof(D3DPRESENT_PARAMETERS), &presParam);
     }
+    // Reset swapchain and link server backbuffer/depth buffer after the server reset its swapchain, or we will link to the old backbuffer/depth resources
+    initImplicitObjects(presParam);
   }
   return S_OK;
 }

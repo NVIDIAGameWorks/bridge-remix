@@ -1,0 +1,55 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+
+    strategy:
+      matrix:
+        include:
+          - build-flavour: debug
+            output-subdir: _output
+          - build-flavour: release
+            output-subdir: _output
+
+    steps:
+    - name: Setup variables
+      uses: actions/github-script@v6
+      with:
+        script: core.exportVariable('GITHUB_SHA_SHORT', context.sha.substring(0, 7))
+
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        
+    - name: Setup Meson
+      run: pip install meson==0.64.1
+    
+    - name: Build
+      shell: pwsh
+      run: |
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+        . .\build_bridge_${{matrix.build-flavour}}.bat
+    
+    - name: Copy readme
+      run: copy artifacts_readme.txt _output
+    
+    - name: Upload binaries
+      uses: actions/upload-artifact@v3
+      with:
+        name: dxvk-remix-${{env.GITHUB_SHA_SHORT}}-${{github.run_number}}-${{matrix.build-flavour}}
+        path: |
+          _output\*.dll
+          _output\*.exe
+          _output\*.pdb
+          _output\*.txt
+          _output\.trex\*.dll
+          _output\.trex\*.exe
+          _output\.trex\*.pdb

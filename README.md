@@ -1,5 +1,7 @@
 # NVIDIA RTX Remix Bridge
 
+[![Build Status](https://github.com/NVIDIAGameWorks/bridge-remix/actions/workflows/build.yml/badge.svg)](https://github.com/NVIDIAGameWorks/bridge-remix/actions/workflows/build.yml)
+
 The NVIDIA RTX Remix project allows bringing high quality pathtraced rendering, lighting, shadows etc. into classic games. This repo contains the NVIDIA RTX Remix Bridge client and server components required for enabling a 32-bit game to interact with the 64-bit Remix Runtime dll.
 
 > **NOTE:** To experience the full feature set of NVIDIA RTX Remix, binaries compiled from this repo need to be combined with the binaries from the `dxvk-remix` [repo on GitHub](https://github.com/NVIDIAGameWorks/dxvk-remix/). For additional details and explanation see below!

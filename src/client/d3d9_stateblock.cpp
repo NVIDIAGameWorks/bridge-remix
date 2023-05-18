@@ -29,7 +29,8 @@
 
 HRESULT Direct3DStateBlock9_LSS::QueryInterface(REFIID riid, LPVOID* ppvObj) {
   LogFunctionCall();
-  return E_POINTER;
+  if (ppvObj == nullptr)
+    return E_POINTER;
 
   *ppvObj = nullptr;
 

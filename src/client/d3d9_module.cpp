@@ -264,21 +264,6 @@ HRESULT Direct3D9Ex_LSS::CheckDeviceFormat(UINT Adapter, D3DDEVTYPE DeviceType, 
     return  D3DERR_INVALIDCALL;
   }
 
-  // Dxvk doesn't support these formats
-  switch (CheckFormat) {
-  case D3DFMT_R8G8B8:
-  case D3DFMT_R3G3B2:
-  case D3DFMT_A8R3G3B2:
-  case D3DFMT_A8P8:
-  case D3DFMT_P8:
-  case D3DFMT_L6V5U5:
-  case D3DFMT_A2W10V10U10:
-  case D3DFMT_X8L8V8U8:
-  case D3DFMT_CxV8U8:
-  case D3DFMT_A8L8:
-    return D3DERR_NOTAVAILABLE;
-  }
-
   // Send command to server and wait for response
   {
     ClientMessage c(Commands::IDirect3D9Ex_CheckDeviceFormat);

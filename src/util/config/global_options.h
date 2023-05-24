@@ -212,6 +212,10 @@ public:
     bridge_util::Logger::debug(bridge_util::format_string("Global settings are being applied from flags value %d", flags));
   }
 
+  static const bool getAlwaysCopyEntireStaticBuffer() {
+    return get().alwaysCopyEntireStaticBuffer;
+  }
+
 private:
   GlobalOptions() = default;
 
@@ -311,6 +315,10 @@ private:
 
     // Thread-safety policy: 0 - use client's choice, 1 - force thread-safe, 2 - force non-thread-safe
     threadSafetyPolicy = bridge_util::Config::getOption<uint32_t>("threadSafetyPolicy", 0);
+
+    // If set and a buffer is not dynamic, vertex and index buffer lock/unlocks will ignore the bounds set during the lock call
+    // and the brifge will copy the entire buffer. This means
+    alwaysCopyEntireStaticBuffer = bridge_util::Config::getOption<bool>("alwaysCopyEntireStaticBuffer", false);
   }
 
   void initSharedHeapPolicy();
@@ -350,4 +358,5 @@ private:
   uint32_t sharedHeapChunkSize;
   uint32_t sharedHeapFreeChunkWaitTimeout;
   uint32_t threadSafetyPolicy;
+  bool alwaysCopyEntireStaticBuffer;
 };

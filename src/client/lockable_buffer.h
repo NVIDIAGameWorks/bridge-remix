@@ -78,6 +78,7 @@ private:
 protected:
   const DescType m_desc;
   SharedHeap::AllocId m_bufferId = SharedHeap::kInvalidId;
+  bool m_sendWhole = false;
 
   LockableBuffer(T* const pD3dBuf, BaseDirect3DDevice9Ex_LSS* const pDevice, const DescType& desc)
     : Direct3DResource9_LSS<T>(pD3dBuf, pDevice)
@@ -85,6 +86,10 @@ protected:
     , m_bUseSharedHeap(getSharedHeapPolicy(m_desc)) {
     if (!m_bUseSharedHeap) {
       initShadowMem();
+    }
+
+    if ((m_desc.Usage & D3DUSAGE_DYNAMIC) == 0 && GlobalOptions::getAlwaysCopyEntireStaticBuffer()) {
+      m_sendWhole = true;
     }
   }
 
@@ -145,19 +150,28 @@ protected:
     }
     // Get most recent locked buffer and grab data before we unlock
     const auto& lockInfo = m_lockInfos.front();
-    const size_t size = (lockInfo.sizeToLock == 0) ? m_desc.Size : lockInfo.sizeToLock;
+    size_t size = (lockInfo.sizeToLock == 0) ? m_desc.Size : lockInfo.sizeToLock;
+    uint32_t offset = lockInfo.offsetToLock;
+    void* ptr = lockInfo.pbData;
+
+    if (m_sendWhole) {
+      size = m_desc.Size;
+      offset = 0;
+      ptr = m_shadow.get();
+    }
+
     // If this is a read only access then don't bother sending
     if ((lockInfo.flags & D3DLOCK_READONLY) == 0) {
       {
         // Send the buffer lock parameters and handle
         ClientMessage c(UnlockCmd, getId(), m_bUseSharedHeap ? Commands::FlagBits::DataInSharedHeap : 0);
-        c.send_many(lockInfo.offsetToLock, size, lockInfo.flags);
+        c.send_many(offset, size, lockInfo.flags);
 
         if (m_bUseSharedHeap) {
           c.send_data(lockInfo.bufferId);
         } else {
           // Now send the buffer bytes
-          c.send_data(size, lockInfo.pbData);
+          c.send_data(size, ptr);
         }
       }
       if (lockInfo.discardedBufferId != SharedHeap::kInvalidId) {

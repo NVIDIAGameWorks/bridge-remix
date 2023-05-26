@@ -27,7 +27,7 @@
 #include "d3d9_device_base.h"
 #include "d3d9_privatedata.h"
 
-#include "util_clientcommand.h"
+#include "util_devicecommand.h"
 #include "util_common.h"
 #include "util_scopedlock.h"
 

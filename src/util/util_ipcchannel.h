@@ -19,88 +19,87 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-#ifndef UTIL_IPCCHANNEL_H_
-#define UTIL_IPCCHANNEL_H_
+#pragma once
 
 #include "log/log.h"
 
+#include "util_atomiccircularqueue.h"
+#include "util_blockingcircularqueue.h"
 #include "util_sharedmemory.h"
 
-namespace bridge_util {
+ // Helper struct that ties together everything needed to send commands and data and for synchronization
+template<bridge_util::Accessor Accessor>
+class IpcChannel {
   // Due to semaphore latency, BlockingCircularQueue is slower than AtomicCircularQueue
 #ifdef USE_BLOCKING_QUEUE
-  typedef BlockingCircularQueue<Header> CommandQueue;
+  using CommandQueue = bridge_util::BlockingCircularQueue<Header, Accessor>;
 #else
-  typedef AtomicCircularQueue<Header> CommandQueue;
+  using CommandQueue = bridge_util::AtomicCircularQueue<Header, Accessor>;
 #endif
-}
-
-// Helper struct that ties together everything needed to send commands and data and for synchronization
-typedef struct _IpcChannel {
-  bridge_util::CommandQueue* commands = nullptr;
-  bridge_util::DataQueue* data = nullptr;
-  int64_t* serverDataPos = nullptr;
-  int64_t* clientDataExpectedPos = nullptr;
-  bool* serverResetPosRequired = false;
-  bridge_util::SharedMemory* sharedMem = nullptr;
-  bridge_util::NamedSemaphore* dataSemaphore = nullptr;
-
-  ~_IpcChannel() {
-    if (commands) delete commands;
-    if (data) delete data;
-    if (sharedMem) delete sharedMem;
-    if (dataSemaphore) delete dataSemaphore;
-  }
-
-  void initMem(const std::string& name, size_t memSize) {
-    // Extra storage needed for data queue synchronization
-    auto extra = sizeof(*serverDataPos) + sizeof(*clientDataExpectedPos) + sizeof(*serverResetPosRequired);
-
-    // Allocate shared memory
-    try {
-      sharedMem = new bridge_util::SharedMemory(name, memSize + extra);
-    }
-    catch (...) {
-      bridge_util::Logger::err("Failed to create the shared memory component of our channel. IPC impossible. Expect failures.");
-      return;
-    }
-    m_sharedMemSize = memSize;
-    auto memPtr = (uintptr_t) sharedMem->data();
-
-    // Below pointers are used in preventing buffer override in data queue
-    serverDataPos = (int64_t*) memPtr;
-    clientDataExpectedPos = (int64_t*) (serverDataPos + sizeof(*serverDataPos));
-    serverResetPosRequired = (bool*) (clientDataExpectedPos + sizeof(*clientDataExpectedPos));
-  }
-
-  void initQueues(const std::string& prefix, bridge_util::Accessor accessor, size_t cmdMemSize, size_t cmdQueueSize, size_t dataMemSize, size_t dataQueueSize) {
-    assert(sharedMem != nullptr);
-    if(!sharedMem) {
-      return;
-    }
-    
-    // Check that we're leaving enough space.
-    assert(cmdMemSize + dataMemSize <= m_sharedMemSize);
-
-    auto extra = sizeof(*serverDataPos) + sizeof(*clientDataExpectedPos) + sizeof(*serverResetPosRequired);
-    auto memPtr = (uintptr_t) sharedMem->data();
-
+public:
+  IpcChannel(const std::string& name,
+             const size_t memSize,
+             const size_t cmdQueueSize,
+             const size_t dataQueueSize)
+    : m_extraMemForSync(sizeof(*serverDataPos) +
+                        sizeof(*clientDataExpectedPos) +
+                        sizeof(*serverResetPosRequired))
+    , sharedMem(new bridge_util::SharedMemory(name + "Channel", memSize + m_extraMemForSync))
+    , m_cmdMemSize(sizeof(Header)* cmdQueueSize + CommandQueue::getExtraMemoryRequirements())
+    , m_dataMemSize(memSize - m_cmdMemSize)
+    , serverDataPos(static_cast<int64_t*>(sharedMem->data()))
+    , clientDataExpectedPos(static_cast<int64_t*>(serverDataPos + sizeof(*serverDataPos)))
+    , serverResetPosRequired(reinterpret_cast<bool*>(clientDataExpectedPos +
+                                                     sizeof(*clientDataExpectedPos)))
     // Offsetting shared memory to account for 3 pointers used above
-    commands = new bridge_util::CommandQueue(prefix + "Command", accessor, (void*) (memPtr + extra), cmdMemSize, cmdQueueSize);
-    data = new bridge_util::DataQueue(prefix + "Data", accessor, (void*) (memPtr + extra + cmdMemSize), dataMemSize, dataQueueSize);
-    dataSemaphore = new bridge_util::NamedSemaphore(prefix + "DataQueue", 0, 1);
-
+    , commands(new CommandQueue(name + "Command",
+                                reinterpret_cast<void*>(
+                                  reinterpret_cast<uintptr_t>(sharedMem->data()) +
+                                  m_extraMemForSync),
+                                m_cmdMemSize,
+                                cmdQueueSize))
+    , data(new bridge_util::DataQueue(name + "Data",
+                                      Accessor,
+                                      reinterpret_cast<void*>(
+                                        reinterpret_cast<uintptr_t>(sharedMem->data()) +
+                                        m_extraMemForSync +
+                                        m_cmdMemSize),
+                                      m_dataMemSize,
+                                      dataQueueSize))
+    , dataSemaphore(new bridge_util::NamedSemaphore(name + "Semaphore", 0, 1))
+    , pbCmdInProgress(new std::atomic<bool>(false)) {
+    // Check that we're leaving enough space.
+    assert(m_cmdMemSize + m_dataMemSize <= sharedMem->getSize());
     // Initialize buffer override protection
-    if (accessor == bridge_util::Accessor::Writer) {
+    if constexpr (IS_WRITER(Accessor)) {
       *serverDataPos = -1;
       *clientDataExpectedPos = -1;
       *serverResetPosRequired = false;
     }
   }
 
-private:
-  size_t m_sharedMemSize = 0;
+  ~IpcChannel() {
+    if (commands) delete commands;
+    if (data) delete data;
+    if (sharedMem) delete sharedMem;
+    if (dataSemaphore) delete dataSemaphore;
+  }
 
-} IpcChannel;
+  size_t get_data_pos() const {
+    return data->get_pos();
+  }
 
-#endif // UTIL_IPCCHANNEL_H_
+  const size_t                       m_extraMemForSync; // Extra storage needed for data queue synchronization
+  bridge_util::SharedMemory* const   sharedMem;
+  const size_t                       m_cmdMemSize;
+  const size_t                       m_dataMemSize;
+  int64_t* serverDataPos;
+  int64_t* clientDataExpectedPos;
+  bool* serverResetPosRequired;
+  CommandQueue* const                commands;
+  bridge_util::DataQueue* const      data;
+  bridge_util::NamedSemaphore* const dataSemaphore;
+  std::atomic<bool>* const           pbCmdInProgress;
+};
+using WriterChannel = IpcChannel<bridge_util::Accessor::Writer>;
+using ReaderChannel = IpcChannel<bridge_util::Accessor::Reader>;

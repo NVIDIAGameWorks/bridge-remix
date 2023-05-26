@@ -43,9 +43,6 @@ extern D3DC9 orig_Direct3DCreate9;
 typedef HRESULT(WINAPI* LPDirect3DCreate9Ex)(UINT SDKVersion, IDirect3D9Ex** ppD3D);
 extern LPDirect3DCreate9Ex orig_Direct3DCreate9Ex;
 
-extern IpcChannel gClientChannel;
-extern IpcChannel gServerChannel;
-
 extern Process* gpServer;
 extern bool gbBridgeRunning;
 

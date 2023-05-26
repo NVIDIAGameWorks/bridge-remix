@@ -265,7 +265,7 @@ void Direct3DSurface9_LSS::sendDataToServer(const LockInfo& lockInfo) const {
       const size_t totalSize = bridge_util::calcTotalSizeOfRect(width, height, m_desc.Format);
       const size_t rowSize = bridge_util::calcRowSize(width, m_desc.Format);
       c.send_data(rowSize);
-      if (auto* blobPacketPtr = c.begin_data_blob<uint8_t>(totalSize)) {
+      if (auto* blobPacketPtr = c.begin_data_blob(totalSize)) {
         FOR_EACH_RECT_ROW(lockInfo.lockedRect, height, m_desc.Format, {
           memcpy(blobPacketPtr, ptr, rowSize);
           blobPacketPtr += rowSize;

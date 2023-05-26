@@ -24,7 +24,7 @@
 #include "d3d9_cubetexture.h"
 #include "shadow_map.h"
 
-#include "util_clientcommand.h"
+#include "util_devicecommand.h"
 
 static inline uint32_t getCubeSurfaceIndex(D3DCUBEMAP_FACES FaceType, UINT Level) {
   return FaceType + Level * caps::MaxCubeFaces;

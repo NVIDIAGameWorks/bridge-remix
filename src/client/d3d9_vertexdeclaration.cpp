@@ -23,7 +23,7 @@
 
 #include "pch.h"
 
-#include "util_clientcommand.h"
+#include "util_devicecommand.h"
 
 HRESULT Direct3DVertexDeclaration9_LSS::QueryInterface(REFIID riid, LPVOID* ppvObj) {
   LogFunctionCall();

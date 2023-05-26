@@ -22,7 +22,8 @@
 #ifndef UTIL_COMMON_H_
 #define UTIL_COMMON_H_
 
-#include "util_commands.h"
+#include <stdint.h>
+#include <type_traits>
 
 // This setting enables sending lock data row by row instead of one big data
 // chunk at once.Note that volumes will still be sent one slice at a time.
@@ -108,13 +109,6 @@ namespace bridge_util {
 
 #define RESULT_SUCCESS(result) (result == bridge_util::Result::Success)
 #define RESULT_FAILURE(result) (result != bridge_util::Result::Success)
-
-namespace shared_names {
-  static const std::string gClientChannelName("ClientChannel");
-  static const std::string gServerChannelName("ServerChannel");
-  static const std::string gClientQueueName("Client");
-  static const std::string gServerQueueName("Server");
-}
 
 namespace caps {
   static const uint32_t MaxClipPlanes = 6;

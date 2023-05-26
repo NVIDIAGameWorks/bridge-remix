@@ -21,10 +21,12 @@
 #############################################################################
 
 server_src = files([
-	'main.cpp'
+	'main.cpp',
+	'module_processing.cpp'
 ])
 
 server_header = files([
+	'module_processing.h',
 	'server_options.h'
 ])
 

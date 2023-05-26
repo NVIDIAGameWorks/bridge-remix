@@ -22,8 +22,7 @@
 #pragma once
 #include "d3d9_surface.h"
 #include "util_bridge_assert.h" 
-#include "util_clientcommand.h"
-#include "util_servercommand.h"
+#include "util_devicecommand.h"
 #include "util_texture_and_volume.h"
 
 #include <assert.h>
@@ -33,21 +32,21 @@ using namespace bridge_util;
 static HRESULT copyServerSurfaceRawData(Direct3DSurface9_LSS* const pLssSurface) {
   // Obtaining raw surface data buffer from server
   const uint32_t timeoutMs = GlobalOptions::getAckTimeout();
-  if (Result::Success != ServerMessage::waitForCommandAndDiscard(Commands::Bridge_Response, timeoutMs)) {
+  if (Result::Success != DeviceBridge::waitForCommandAndDiscard(Commands::Bridge_Response, timeoutMs)) {
     Logger::err("getServerSurfaceBufferData() failed with: no response from server.");
     return D3DERR_INVALIDCALL;
   }
 
-  HRESULT res = (HRESULT)ServerMessage::get_data();
+  HRESULT res = (HRESULT)DeviceBridge::get_data();
   if (!SUCCEEDED(res)) {
     return res;
   }
 
-  uint32_t width = (uint32_t) ServerMessage::get_data();
-  uint32_t height = (uint32_t) ServerMessage::get_data();
-  const D3DFORMAT format = (D3DFORMAT) ServerMessage::get_data();
+  uint32_t width = (uint32_t) DeviceBridge::get_data();
+  uint32_t height = (uint32_t) DeviceBridge::get_data();
+  const D3DFORMAT format = (D3DFORMAT) DeviceBridge::get_data();
   void* pData = NULL;
-  size_t pulledSize = ServerMessage::get_data(&pData);
+  size_t pulledSize = DeviceBridge::get_data(&pData);
 
   // Copy data into a surface
   const size_t rowSize = bridge_util::calcRowSize(width, (D3DFORMAT) format);

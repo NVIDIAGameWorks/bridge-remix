@@ -36,14 +36,14 @@
 #include "remix_state.h"
 #include "util_bridge_assert.h"
 #include "util_bridge_state.h"
-#include "util_clientcommand.h"
 #include "util_common.h"
+#include "util_devicecommand.h"
+#include "util_modulecommand.h"
 #include "util_filesys.h"
 #include "util_hack_d3d_debug.h"
 #include "util_messagechannel.h"
 #include "util_seh.h"
 #include "util_semaphore.h"
-#include "util_servercommand.h"
 
 #include <assert.h>
 #include <sstream>
@@ -61,8 +61,6 @@ uintptr_t D3dBaseIdFactory::getNextId() {
 static bool gIsAttached = false;
 Guid gUniqueIdentifier;
 Process* gpServer = nullptr;
-IpcChannel gClientChannel;
-IpcChannel gServerChannel;
 NamedSemaphore* gpPresent = nullptr;
 ShadowMap gShadowMap;
 std::unordered_map<HWND, WNDPROC> ogWndProc;
@@ -138,7 +136,7 @@ void InitServer() {
   ClientMessage { Commands::Bridge_Syn, (uintptr_t) gpServer->GetCurrentProcessHandle() };
 
   BridgeState::setClientState(BridgeState::ProcessState::Handshaking);
-  const auto waitForAckResult = ServerMessage::waitForCommand(Commands::Bridge_Ack, GlobalOptions::getStartupTimeout());
+  const auto waitForAckResult = DeviceBridge::waitForCommand(Commands::Bridge_Ack, GlobalOptions::getStartupTimeout());
   switch (waitForAckResult) {
   case Result::Timeout:
   {
@@ -157,7 +155,7 @@ void InitServer() {
   }
   }
   // Remove Ack from queue and get thread id for thread proc message handler from server
-  const auto ackResponse = ServerMessage::pop_front();
+  const auto ackResponse = DeviceBridge::pop_front();
   gpServerMessageChannel = std::make_unique<MessageChannelClient>(static_cast<uint32_t>(ackResponse.pHandle));
   {
     // Special handling for certain window messages to disable semaphore timeouts
@@ -455,12 +453,8 @@ bool RemixAttach(HMODULE hModule) {
     gpRemixMessageChannel = std::make_unique<MessageChannelClient>("UWM_REMIX_BRIDGE_REGISTER_THREADPROC_MSG");
     RemixState::init(*gpRemixMessageChannel);
 
-    // Setup Client IPC
-    gClientChannel.initMem(shared_names::gClientChannelName, GlobalOptions::getClientChannelMemSize());
-    gClientChannel.initQueues(shared_names::gClientQueueName, Accessor::Writer, GlobalOptions::getClientCmdMemSize(), GlobalOptions::getClientCmdQueueSize(), GlobalOptions::getClientDataMemSize(), GlobalOptions::getClientDataQueueSize());
-    // Setup Server IPC
-    gServerChannel.initMem(shared_names::gServerChannelName, GlobalOptions::getServerChannelMemSize());
-    gServerChannel.initQueues(shared_names::gServerQueueName, Accessor::Reader, GlobalOptions::getServerCmdMemSize(), GlobalOptions::getServerCmdQueueSize(), GlobalOptions::getServerDataMemSize(), GlobalOptions::getServerDataQueueSize());
+    initModuleBridge();
+    initDeviceBridge();
 
     gpPresent = new NamedSemaphore("Present", 0, GlobalOptions::getPresentSemaphoreMaxFrames());
 
@@ -500,6 +494,14 @@ void RemixDetach() {
       // Send Terminate command immediately before we clean up resources
       {
         ClientMessage { Commands::Bridge_Terminate };
+      }
+
+      const auto result = DeviceBridge::waitForCommandAndDiscard(Commands::Bridge_Ack,
+                                                                  GlobalOptions::getCommandTimeout());
+      if (RESULT_SUCCESS(result)) {
+        Logger::info("Server notified that it has cleanly terminated. Cleaning up.");
+      } else {
+        Logger::err("Timeout waiting for clean server termination. Moving ahead anyway.");
       }
 
       delete gpServer;

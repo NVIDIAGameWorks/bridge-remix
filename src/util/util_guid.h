@@ -28,6 +28,7 @@
 #include <iomanip>
 #include <sstream>
 #include <windows.h>
+#include <objbase.h>
 
 #define GUID_LENGTH 36
 

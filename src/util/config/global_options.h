@@ -25,7 +25,7 @@
 #include "log/log.h"
 #include "util_bridgecommand.h"
 
-#include <d3d9types.h>
+#include <d3d9.h>
 #include <debugapi.h>
 #include <vector>
 
@@ -46,6 +46,30 @@ public:
     get().initialize();
   }
 
+  static uint32_t getModuleClientChannelMemSize() {
+    return get().moduleClientChannelMemSize;
+  }
+
+  static uint32_t getModuleClientCmdQueueSize() {
+    return get().moduleClientCmdQueueSize;
+  }
+
+  static uint32_t getModuleClientDataQueueSize() {
+    return get().moduleClientDataQueueSize;
+  }
+
+  static uint32_t getModuleServerChannelMemSize() {
+    return get().moduleServerChannelMemSize;
+  }
+
+  static uint32_t getModuleServerCmdQueueSize() {
+    return get().moduleServerCmdQueueSize;
+  }
+
+  static uint32_t getModuleServerDataQueueSize() {
+    return get().moduleServerDataQueueSize;
+  }
+
   static uint32_t getClientChannelMemSize() {
     return get().clientChannelMemSize;
   }
@@ -54,16 +78,8 @@ public:
     return get().clientCmdQueueSize;
   }
 
-  static uint32_t getClientCmdMemSize() {
-    return sizeof(Header) * get().clientCmdQueueSize + bridge_util::CommandQueue::getExtraMemoryRequirements(); // Adding some padding to help with aligning atomics in cacheline.
-  }
-
   static uint32_t getClientDataQueueSize() {
     return get().clientDataQueueSize;
-  }
-
-  static uint32_t getClientDataMemSize() {
-    return get().clientChannelMemSize - getClientCmdMemSize();
   }
 
   static uint32_t getServerChannelMemSize() {
@@ -74,16 +90,8 @@ public:
     return get().serverCmdQueueSize;
   }
 
-  static uint32_t getServerCmdMemSize() {
-    return sizeof(Header) * get().serverCmdQueueSize + bridge_util::CommandQueue::getExtraMemoryRequirements(); // Adding some padding to help with aligning atomics in cacheline.
-  }
-
   static uint32_t getServerDataQueueSize() {
     return get().serverDataQueueSize;
-  }
-
-  static uint32_t getServerDataMemSize() {
-    return get().serverChannelMemSize - getServerCmdMemSize();
   }
 
   static bool getSendReadOnlyCalls() {
@@ -224,14 +232,48 @@ private:
     // We only read the config values once from the config file and cache them in the
     // object so that it is transparent to the caller where the value is coming from.
 
+    // Module Channel Defaults
+    static constexpr size_t kDefaultModuleClientChannelMemSize = 4 << 20; // 4MB
+    static constexpr size_t kDefaultModuleClientCmdQueueSize = 5;
+    static constexpr size_t kDefaultModuleClientDataQueueSize = 25;
+    static constexpr size_t kDefaultModuleServerChannelMemSize = 4 << 20; // 4MB
+    static constexpr size_t kDefaultModuleServerCmdQueueSize = 5;
+    static constexpr size_t kDefaultModuleServerDataQueueSize = 25;
+    // Module Channel Options
+    moduleClientChannelMemSize = bridge_util::Config::getOption<uint32_t>(
+      "moduleClientChannelMemSize", kDefaultModuleClientChannelMemSize);
+    moduleClientCmdQueueSize = bridge_util::Config::getOption<uint32_t>(
+      "moduleClientCmdQueueSize", kDefaultModuleClientCmdQueueSize );
+    moduleClientDataQueueSize = bridge_util::Config::getOption<uint32_t>(
+      "moduleClientDataQueueSize", kDefaultModuleClientDataQueueSize);
+    moduleServerChannelMemSize = bridge_util::Config::getOption<uint32_t>(
+      "moduleServerChannelMemSize", kDefaultModuleServerChannelMemSize);
+    moduleServerCmdQueueSize = bridge_util::Config::getOption<uint32_t>(
+      "moduleServerCmdQueueSize", kDefaultModuleServerCmdQueueSize);
+    moduleServerDataQueueSize = bridge_util::Config::getOption<uint32_t>(
+      "moduleServerDataQueueSize", kDefaultModuleServerDataQueueSize);
 
-    clientChannelMemSize = bridge_util::Config::getOption<uint32_t>("clientChannelMemSize", 1'024 * 1'024 * 96);
-    clientCmdQueueSize = bridge_util::Config::getOption<uint32_t>("clientCmdQueueSize", 3'000);
-    clientDataQueueSize = bridge_util::Config::getOption<uint32_t>("clientDataQueueSize", 3'000);
+    // Device Channel Defaults
+    static constexpr size_t kDefaultClientChannelMemSize = 96 << 20; // 96MB
+    static constexpr size_t kDefaultClientCmdQueueSize = 3 << 10; // 3k
+    static constexpr size_t kDefaultClientDataQueueSize = 3 << 10; // 3k
+    static constexpr size_t kDefaultServerChannelMemSize = 32 << 20; // 32MB
+    static constexpr size_t kDefaultServerCmdQueueSize = 10;
+    static constexpr size_t kDefaultServerDataQueueSize = 25;
+    // Device Channel Options
+    clientChannelMemSize = bridge_util::Config::getOption<uint32_t>(
+      "clientChannelMemSize", kDefaultClientChannelMemSize);
+    clientCmdQueueSize = bridge_util::Config::getOption<uint32_t>(
+      "clientCmdQueueSize", kDefaultClientCmdQueueSize );
+    clientDataQueueSize = bridge_util::Config::getOption<uint32_t>(
+      "clientDataQueueSize", kDefaultClientDataQueueSize);
+    serverChannelMemSize = bridge_util::Config::getOption<uint32_t>(
+      "serverChannelMemSize", kDefaultServerChannelMemSize);
+    serverCmdQueueSize = bridge_util::Config::getOption<uint32_t>(
+      "serverCmdQueueSize", kDefaultServerCmdQueueSize);
+    serverDataQueueSize = bridge_util::Config::getOption<uint32_t>(
+      "serverDataQueueSize", kDefaultServerDataQueueSize);
 
-    serverChannelMemSize = bridge_util::Config::getOption<uint32_t>("serverChannelMemSize", 1'024 * 1'024 * 32);
-    serverCmdQueueSize = bridge_util::Config::getOption<uint32_t>("serverCmdQueueSize", 10);
-    serverDataQueueSize = bridge_util::Config::getOption<uint32_t>("serverDataQueueSize", 25);
 
     // Toggle this to also send read only calls to the server. This can be
     // useful for debugging to ensure the server side D3D is in the same state.
@@ -330,6 +372,12 @@ private:
 
   static GlobalOptions instance;
 
+  uint32_t moduleClientChannelMemSize;
+  uint32_t moduleClientCmdQueueSize;
+  uint32_t moduleClientDataQueueSize;
+  uint32_t moduleServerChannelMemSize;
+  uint32_t moduleServerCmdQueueSize;
+  uint32_t moduleServerDataQueueSize;
   uint32_t clientChannelMemSize;
   uint32_t clientCmdQueueSize;
   uint32_t clientDataQueueSize;

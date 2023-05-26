@@ -22,7 +22,7 @@
 #include "util_sharedheap.h"
 
 #include "util_bytes.h"
-#include "util_clientcommand.h"
+#include "util_devicecommand.h"
 #include "config/global_options.h"
 
 #include <assert.h>

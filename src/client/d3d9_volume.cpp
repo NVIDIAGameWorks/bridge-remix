@@ -162,7 +162,7 @@ void Direct3DVolume9_LSS::unlock() {
     // Now push actual bytes
     c.send_many(bytesPerPixel, lockedVolume.RowPitch, lockedVolume.SlicePitch, depth);
 #ifdef SEND_ALL_LOCK_DATA_AT_ONCE
-    if (auto* blobPacketPtr = c.begin_data_blob<uint8_t>(totalSize))
+    if (auto* blobPacketPtr = c.begin_data_blob(totalSize))
 #endif
       for (uint32_t z = 0; z < depth; z++) {
         for (uint32_t y = 0; y < lockedVolume.SlicePitch; y++) {

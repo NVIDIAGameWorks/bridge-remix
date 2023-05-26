@@ -22,7 +22,7 @@
 #include "pch.h"
 #include "d3d9_vertexshader.h"
 
-#include "util_clientcommand.h"
+#include "util_devicecommand.h"
 
 HRESULT Direct3DVertexShader9_LSS::QueryInterface(REFIID riid, LPVOID* ppvObj) {
   LogFunctionCall();

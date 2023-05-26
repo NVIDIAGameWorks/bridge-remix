@@ -33,6 +33,8 @@ namespace bridge_util {
     Reader,
     Writer
   };
+#define IS_READER(ACCESSOR) (ACCESSOR == bridge_util::Accessor::Reader)
+#define IS_WRITER(ACCESSOR) (ACCESSOR == bridge_util::Accessor::Writer)
 
   template<typename T>
   class CircularQueue {

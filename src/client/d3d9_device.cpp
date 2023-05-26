@@ -175,7 +175,7 @@ UINT Direct3DDevice9Ex_LSS<EnableSync>::GetAvailableTextureMem() {
 
   WAIT_FOR_SERVER_RESPONSE("GetAvailableTextureMem()", 0);
   // Available memory in MB
-  UINT mem = (UINT) ServerMessage::get_data();
+  UINT mem = (UINT) DeviceBridge::get_data();
 
   return mem;
 }
@@ -221,9 +221,9 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::internalGetDeviceCaps(D3DCAPS9* pCaps
 
   WAIT_FOR_SERVER_RESPONSE("GetDeviceCaps()", D3DERR_INVALIDCALL);
 
-  HRESULT hresult = ServerMessage::get_data();
+  HRESULT hresult = DeviceBridge::get_data();
   if (SUCCEEDED(hresult)) {
-    uint32_t len = ServerMessage::copy_data(*pCaps);
+    uint32_t len = DeviceBridge::copy_data(*pCaps);
     if (len != sizeof(D3DCAPS9) && len != 0) {
       Logger::err("GetDeviceCaps() failed due to issue with data returned from server.");
       return D3DERR_INVALIDCALL;
@@ -262,9 +262,9 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::GetDisplayMode(UINT iSwapChain, D3DDI
   }
   WAIT_FOR_SERVER_RESPONSE("GetDisplayMode()", D3DERR_INVALIDCALL);
 
-  HRESULT hresult = ServerMessage::get_data();
+  HRESULT hresult = DeviceBridge::get_data();
   if (SUCCEEDED(hresult)) {
-    uint32_t len = ServerMessage::copy_data(*pMode);
+    uint32_t len = DeviceBridge::copy_data(*pMode);
     if (len != sizeof(D3DDISPLAYMODE) && len != 0) {
       Logger::err("GetDisplayMode() failed due to issue with data returned from server.");
       return D3DERR_INVALIDCALL;
@@ -330,7 +330,7 @@ BOOL Direct3DDevice9Ex_LSS<EnableSync>::ShowCursor(BOOL bShow) {
   }
   WAIT_FOR_SERVER_RESPONSE("ShowCursor()", false);
 
-  BOOL prevShow = (BOOL) ServerMessage::get_data();
+  BOOL prevShow = (BOOL) DeviceBridge::get_data();
   return prevShow;
 }
 
@@ -2951,7 +2951,7 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::CheckDeviceState(HWND hDestinationWin
   }
   WAIT_FOR_SERVER_RESPONSE("CheckDeviceState()", E_FAIL);
 
-  HRESULT res = (HRESULT) ServerMessage::get_data();
+  HRESULT res = (HRESULT) DeviceBridge::get_data();
   return res;
 }
 
@@ -3085,16 +3085,16 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::GetDisplayModeEx(UINT iSwapChain, D3D
   }
   WAIT_FOR_SERVER_RESPONSE("GetDisplayModeEx()", D3DERR_INVALIDCALL);
 
-  HRESULT hresult = ServerMessage::get_data();
+  HRESULT hresult = DeviceBridge::get_data();
 
   if (SUCCEEDED(hresult)) {
-    uint32_t len = ServerMessage::copy_data(*pMode);
+    uint32_t len = DeviceBridge::copy_data(*pMode);
     if (len != sizeof(D3DDISPLAYMODEEX) && len != 0) {
       Logger::err("GetDisplayModeEx() failed getting display mode due to issue with data returned from server.");
       return D3DERR_INVALIDCALL;
     }
 
-    len = ServerMessage::copy_data(*pRotation);
+    len = DeviceBridge::copy_data(*pRotation);
     if (len != sizeof(D3DDISPLAYROTATION) && len != 0) {
       Logger::err("GetDisplayModeEx() failed getting display rotation due to issue with data returned from server.");
       return D3DERR_INVALIDCALL;

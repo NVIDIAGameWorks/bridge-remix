@@ -21,19 +21,22 @@
  */
 #pragma once
 
-#include <cstdio>
-#include <atomic>
-#include <assert.h>
 #include "util_common.h"
 
 #include "../tracy/tracy.hpp"
+
+#include <cstdio>
+#include <atomic>
+#include <assert.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 
 namespace bridge_util {
 
   // Intra/Inter-process thread safe, shared circular queue.
   // Constructed from a shared pool of memory - and synchronized using static atomics
   // Single Producer, Single Consumer ONLY!
-  template<typename T>
+  template<typename T, bridge_util::Accessor Accessor>
   class AtomicCircularQueue {
     std::atomic<uint32_t>* m_write;
     std::atomic<uint32_t>* m_read;
@@ -42,7 +45,6 @@ namespace bridge_util {
     T m_default;
 
     const size_t m_queueSize;
-    const Accessor m_access;
 
     static const size_t kAlignment = 128;
     static const size_t kWriteAtomicOffset = 0;
@@ -54,9 +56,8 @@ namespace bridge_util {
       return kMemoryPoolOffset;
     }
 
-    AtomicCircularQueue(const std::string& name, Accessor access, void* pMemory, const size_t memSize, const size_t queueSize)
-      : m_access(access)
-      , m_queueSize(queueSize)
+    AtomicCircularQueue(const std::string& name, void* pMemory, const size_t memSize, const size_t queueSize)
+      : m_queueSize(queueSize)
       , m_data(nullptr) // INIT
     {
       // Ensure we have enough memory
@@ -64,11 +65,11 @@ namespace bridge_util {
       assert(memSize - kMemoryPoolOffset >= queueSize * sizeof(T));
 
       // Writers own the memory, Readers are consumers
-      if (access == Accessor::Reader) {
+      if constexpr(IS_READER(Accessor)) {
         m_data = (T*) ((uintptr_t) pMemory + kMemoryPoolOffset);
         m_write = (std::atomic<uint32_t>*)((uintptr_t) pMemory + kWriteAtomicOffset);
         m_read = (std::atomic<uint32_t>*)((uintptr_t) pMemory + kReadAtomicOffset);
-      } else if (access == Accessor::Writer) {
+      } else if constexpr (IS_WRITER(Accessor)) {
         m_data = new((void*) ((uintptr_t) pMemory + kMemoryPoolOffset)) T[m_queueSize];
         m_write = new((void*) ((uintptr_t) pMemory + kWriteAtomicOffset)) std::atomic<uint32_t>(0);
         m_read = new((void*) ((uintptr_t) pMemory + kReadAtomicOffset)) std::atomic<uint32_t>(0);

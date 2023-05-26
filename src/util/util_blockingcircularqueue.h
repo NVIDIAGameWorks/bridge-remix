@@ -33,7 +33,7 @@ namespace bridge_util {
 
   // Intra/Inter-process thread safe, shared circular queue.
   // Constructed from a shared pool of memory - and synchronized using named semaphores for IPC.
-  template<typename T>
+  template<typename T, bridge_util::Accessor Accessor>
   class BlockingCircularQueue: public CircularQueue<T> {
     NamedSemaphore m_write, m_read;
     T m_default;
@@ -42,8 +42,8 @@ namespace bridge_util {
       return 0;
     }
 
-    BlockingCircularQueue(const std::string& name, Accessor access, void* pMemory, const size_t memSize, const size_t queueSize)
-      : CircularQueue(name, access, pMemory, memSize, queueSize)
+    BlockingCircularQueue(const std::string& name, void* pMemory, const size_t memSize, const size_t queueSize)
+      : CircularQueue(name, Accessor, pMemory, memSize, queueSize)
       , m_write(("Circular_Write_" + name).c_str(), queueSize, queueSize)
       , m_read(("Circular_Read_" + name).c_str(), 0, queueSize) {
     }

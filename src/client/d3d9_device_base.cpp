@@ -23,8 +23,9 @@
 
 #include "d3d9_lss.h"
 
+#include "util_modulecommand.h"
+
 #include <d3d9.h>
-#include <util_servercommand.h>
 
 BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
                                                      Direct3D9Ex_LSS* const pDirect3D,
@@ -49,7 +50,7 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   setWinProc(hWindow);
 
   {
-    ClientMessage c(Commands::IDirect3D9Ex_CreateDevice, getId());
+    ModuleClientCommand c(Commands::IDirect3D9Ex_CreateDevice, getId());
     c.send_many(           createParams.AdapterOrdinal,
                            createParams.DeviceType,
                 (uint32_t) createParams.hFocusWindow,
@@ -63,18 +64,18 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   Logger::debug("...server-side D3D9 device creation command sent...");
 
   Logger::debug("...waiting for create device ack response from server...");
-  if (Result::Success != ServerMessage::waitForCommand(Commands::Bridge_Response)) {
+  if (Result::Success != ModuleBridge::waitForCommand(Commands::Bridge_Response)) {
     Logger::err("...server-side D3D9 device creation failed with: no response from server.");
     removeWinProc(hWindow);
     hresultOut = D3DERR_DEVICELOST;
     return;
   }
   Logger::debug("...create device response received from server...");
-  const auto header = ServerMessage::pop_front();
+  const auto header = ModuleBridge::pop_front();
 
   // Grab hresult from server
-  hresultOut = (HRESULT) ServerMessage::get_data();
-  assert(ServerMessage::get_data_pos() == header.dataOffset);
+  hresultOut = (HRESULT) ModuleBridge::get_data();
+  assert(ModuleBridge::get_data_pos() == header.dataOffset);
 
   if (FAILED(hresultOut)) {
     Logger::err(format_string("...server-side D3D9 device creation failed with %x.", hresultOut));

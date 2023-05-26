@@ -22,20 +22,21 @@
 #include <windows.h>
 
 #include "version.h"
+#include "module_processing.h"
 
 #include "util_bridge_assert.h"
 #include "util_circularbuffer.h"
-#include "util_clientcommand.h"
 #include "util_commands.h"
 #include "util_common.h"
-#include "util_sharedheap.h"
+#include "util_devicecommand.h"
 #include "util_filesys.h"
 #include "util_guid.h"
 #include "util_hack_d3d_debug.h"
 #include "util_messagechannel.h"
+#include "util_modulecommand.h"
 #include "util_seh.h"
 #include "util_semaphore.h"
-#include "util_servercommand.h"
+#include "util_sharedheap.h"
 #include "util_sharedmemory.h"
 #include "util_texture_and_volume.h"
 
@@ -49,6 +50,7 @@
 #include <d3d9.h>
 #include <assert.h>
 #include <map>
+#include <atomic>
 
 using namespace Commands;
 using namespace bridge_util;
@@ -63,7 +65,7 @@ using namespace bridge_util;
     } \
   } 
 
-#define PULL(type, name) const auto& name = (type)ClientMessage::get_data()
+#define PULL(type, name) const auto& name = (type)DeviceBridge::get_data()
 #define PULL_I(name) PULL(INT, name)
 #define PULL_U(name) PULL(UINT, name)
 #define PULL_D(name) PULL(DWORD, name)
@@ -72,12 +74,12 @@ using namespace bridge_util;
             PULL_U(name); \
             assert(name != NULL)
 #define PULL_DATA(size, name) \
-            uint32_t name##_len = ClientMessage::get_data((void**)&name); \
+            uint32_t name##_len = DeviceBridge::get_data((void**)&name); \
             assert(name##_len == 0 || size == name##_len)
 #define PULL_OBJ(type, name) \
             type* name = nullptr; \
             PULL_DATA(sizeof(type), name)
-#define CHECK_DATA_OFFSET (ClientMessage::get_data_pos() == rpcHeader.dataOffset)
+#define CHECK_DATA_OFFSET (DeviceBridge::get_data_pos() == rpcHeader.dataOffset)
 #define GET_HND(name) \
             const auto& name = rpcHeader.pHandle; \
             assert(name != NULL)
@@ -97,8 +99,6 @@ std::chrono::steady_clock::time_point gTimeStart;
 
 // Shared memory and IPC channels
 Guid gUniqueIdentifier;
-IpcChannel gClientChannel;
-IpcChannel gServerChannel;
 NamedSemaphore* gpPresent = nullptr;
 std::unique_ptr<MessageChannelServer> gpClientMessageChannel;
 // D3D Library handle
@@ -137,35 +137,6 @@ static inline void safeDestroy(IUnknown* obj, uint32_t x86handle) {
 #endif
 
   while (obj && static_cast<LONG>(obj->Release()) > 0);
-}
-
-template<typename T>
-static bool dumpLeakedObjects(const char* name, const T& map) {
-  if (!map.empty()) {
-    Logger::err(format_string("%zd objects discovered in %s map at "
-                              "Direct3D module eviction:", map.size(), name));
-    for (auto& [handle, obj] : map) {
-      Logger::err(format_string("\t%x -> %p", handle, obj));
-    }
-    return true;
-  }
-  return false;
-}
-
-static bool dumpLeakedObjects() {
-  bool anyLeaked = false;
-
-  anyLeaked |= dumpLeakedObjects("Resource", gpD3DResources);
-  anyLeaked |= dumpLeakedObjects("Vertex Declaration", gpD3DVertexDeclarations);
-  anyLeaked |= dumpLeakedObjects("State Block", gpD3DStateBlocks);
-  anyLeaked |= dumpLeakedObjects("Vertex Shader", gpD3DVertexShaders);
-  anyLeaked |= dumpLeakedObjects("Pixel Shader", gpD3DPixelShaders);
-  anyLeaked |= dumpLeakedObjects("Swapchain", gpD3DSwapChains);
-  anyLeaked |= dumpLeakedObjects("Volume", gpD3DVolumes);
-
-  anyLeaked |= dumpLeakedObjects("Device", gpD3DDevices);
-
-  return anyLeaked;
 }
 
 D3DPRESENT_PARAMETERS getPresParamFromRaw(const uint32_t* rawPresentationParameters) {
@@ -228,7 +199,7 @@ HRESULT ReturnSurfaceDataToClient(IDirect3DSurface9* pReturnSurfaceData, HRESULT
   c.send_data(width);
   c.send_data(height);
   c.send_data(format);
-  if (auto* blobPacketPtr = c.begin_data_blob<uint8_t>(totalSize)) {
+  if (auto* blobPacketPtr = c.begin_data_blob(totalSize)) {
     FOR_EACH_RECT_ROW(lockedRect, height, format, {
       memcpy(blobPacketPtr, ptr, rowSize);
       blobPacketPtr += rowSize;
@@ -240,24 +211,53 @@ HRESULT ReturnSurfaceDataToClient(IDirect3DSurface9* pReturnSurfaceData, HRESULT
   return hresult;
 }
 
-void ProcessCommandQueue() {
+template<typename T>
+static bool dumpLeakedObjects(const char* name, const T& map) {
+  if (!map.empty()) {
+    bridge_util::Logger::err(format_string("%zd objects discovered in %s map at "
+                              "Direct3D module eviction:", map.size(), name));
+    for (auto& [handle, obj] : map) {
+      bridge_util::Logger::err(format_string("\t%x -> %p", handle, obj));
+    }
+    return true;
+  }
+  return false;
+}
+
+static bool dumpLeakedObjects() {
+  bool anyLeaked = false;
+
+  anyLeaked |= dumpLeakedObjects("Resource", gpD3DResources);
+  anyLeaked |= dumpLeakedObjects("Vertex Declaration", gpD3DVertexDeclarations);
+  anyLeaked |= dumpLeakedObjects("State Block", gpD3DStateBlocks);
+  anyLeaked |= dumpLeakedObjects("Vertex Shader", gpD3DVertexShaders);
+  anyLeaked |= dumpLeakedObjects("Pixel Shader", gpD3DPixelShaders);
+  anyLeaked |= dumpLeakedObjects("Swapchain", gpD3DSwapChains);
+  anyLeaked |= dumpLeakedObjects("Volume", gpD3DVolumes);
+
+  anyLeaked |= dumpLeakedObjects("Device", gpD3DDevices);
+
+  return anyLeaked;
+}
+
+void ProcessDeviceCommandQueue() {
   // Loop until the client sends terminate instruction
   bool done = false;
-  while (!done && ClientMessage::waitForCommand() == Result::Success) {
+  while (!done && DeviceBridge::waitForCommand() == Result::Success) {
     ZoneScopedN("Process Command");
 #ifdef LOG_SERVER_COMMAND_TIME
     // Take a snapshot of the current tick count for profiling purposes
     const auto start = GetTickCount64();
 #endif
 
-    const Header rpcHeader = ClientMessage::pop_front();
+    const Header rpcHeader = DeviceBridge::pop_front();
 
 #ifdef _DEBUG
     // If data batching is enabled and the data offset on the comamnd is different from
     // our current offset we know there must be data to read, so we start a data batch
     // read operation on the data queue buffer.
     if (!CHECK_DATA_OFFSET) {
-      const auto result = ClientMessage::begin_read_data();
+      const auto result = DeviceBridge::begin_read_data();
       assert(RESULT_SUCCESS(result));
     }
 #endif
@@ -271,255 +271,6 @@ void ProcessCommandQueue() {
 
       // The mother of all switch statements - every call in the D3D9 interface is mapped here...
       switch (rpcHeader.command) {
-        /*
-         * IDirect3D9 interface
-         */
-      case IDirect3D9Ex_QueryInterface:
-        break;
-      case IDirect3D9Ex_AddRef:
-      {
-        // The server controls its own device lifetime completely - no op
-        break;
-      }
-      case IDirect3D9Ex_Destroy:
-      {
-        if (!dumpLeakedObjects()) {
-          Logger::info("No leaked objects dicovered at Direct3D module eviction.");
-        }
-        break;
-      }
-      case IDirect3D9Ex_RegisterSoftwareDevice:
-        break;
-      case IDirect3D9Ex_GetAdapterCount:
-      {
-        const auto cnt = gpD3D->GetAdapterCount();
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(cnt);
-        }
-        break;
-      }
-      case IDirect3D9Ex_GetAdapterIdentifier:
-      {
-        PULL_U(Adapter);
-        PULL_D(Flags);
-        D3DADAPTER_IDENTIFIER9 pIdentifier;
-        auto hresult = gpD3D->GetAdapterIdentifier(IN Adapter, IN Flags, OUT & pIdentifier);
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(hresult);
-          if (SUCCEEDED(hresult)) {
-            c.send_data(sizeof(D3DADAPTER_IDENTIFIER9), &pIdentifier);
-          }
-        }
-        break;
-      }
-      case IDirect3D9Ex_GetAdapterModeCount:
-      {
-        PULL_U(Adapter);
-        PULL(D3DFORMAT, Format);
-        const auto cnt = gpD3D->GetAdapterModeCount(IN Adapter, IN Format);
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(cnt);
-        }
-        break;
-      }
-      case IDirect3D9Ex_EnumAdapterModes:
-      {
-        PULL_U(Adapter);
-        PULL(D3DFORMAT, Format);
-        PULL_U(Mode);
-        D3DDISPLAYMODE pMode;
-        const auto hresult = gpD3D->EnumAdapterModes(IN Adapter, IN Format, IN Mode, OUT & pMode);
-        BRIDGE_ASSERT_LOG(SUCCEEDED(hresult), "Issue checking Adapter compatibility with required format");
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(hresult);
-          if (SUCCEEDED(hresult)) {
-            c.send_data(sizeof(D3DDISPLAYMODE), &pMode);
-          }
-        }
-        break;
-      }
-      case IDirect3D9Ex_GetAdapterDisplayMode:
-      {
-        PULL_U(Adapter);
-        D3DDISPLAYMODE pMode;
-        const auto hresult = gpD3D->GetAdapterDisplayMode(IN Adapter, OUT & pMode);
-        BRIDGE_ASSERT_LOG(SUCCEEDED(hresult), "Issue retrieving Adapter display mode");
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(hresult);
-          if (SUCCEEDED(hresult)) {
-            c.send_data(sizeof(D3DDISPLAYMODE), &pMode);
-          }
-        }
-        break;
-      }
-      case IDirect3D9Ex_CheckDeviceType:
-      {
-        PULL_U(Adapter);
-        PULL(D3DDEVTYPE, DevType);
-        PULL(D3DFORMAT, AdapterFormat);
-        PULL(D3DFORMAT, BackBufferFormat);
-        PULL(BOOL, bWindowed);
-        const auto hresult = gpD3D->CheckDeviceType(IN Adapter, IN DevType, IN AdapterFormat, IN BackBufferFormat, IN bWindowed);
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(hresult);
-        }
-        break;
-      }
-      case IDirect3D9Ex_CheckDeviceFormat:
-      {
-        PULL_U(Adapter);
-        PULL(D3DDEVTYPE, DeviceType);
-        PULL(D3DFORMAT, AdapterFormat);
-        PULL_D(Usage);
-        PULL(D3DRESOURCETYPE, RType);
-        PULL(D3DFORMAT, CheckFormat);
-        const auto hresult = gpD3D->CheckDeviceFormat(IN Adapter, IN DeviceType, IN AdapterFormat, IN Usage, IN RType, IN CheckFormat);
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(hresult);
-        }
-        break;
-      }
-      case IDirect3D9Ex_CheckDeviceMultiSampleType:
-      {
-        PULL_U(Adapter);
-        PULL(D3DDEVTYPE, DeviceType);
-        PULL(D3DFORMAT, SurfaceFormat);
-        PULL(BOOL, Windowed);
-        PULL(D3DMULTISAMPLE_TYPE, MultiSampleType);
-
-        DWORD QualityLevels;
-        const auto hresult = gpD3D->CheckDeviceMultiSampleType(IN Adapter, IN DeviceType, IN SurfaceFormat, IN Windowed, IN MultiSampleType, OUT & QualityLevels);
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(hresult);
-          c.send_data(QualityLevels);
-        }
-        break;
-      }
-      case IDirect3D9Ex_CheckDepthStencilMatch:
-      {
-        PULL_U(Adapter);
-        PULL(D3DDEVTYPE, DeviceType);
-        PULL(D3DFORMAT, AdapterFormat);
-        PULL(D3DFORMAT, RenderTargetFormat);
-        PULL(D3DFORMAT, DepthStencilFormat);
-        const auto hresult = gpD3D->CheckDepthStencilMatch(IN Adapter, IN DeviceType, IN AdapterFormat, IN RenderTargetFormat, IN DepthStencilFormat);
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(hresult);
-        }
-        break;
-      }
-      case IDirect3D9Ex_CheckDeviceFormatConversion:
-      {
-        PULL_U(Adapter);
-        PULL(D3DDEVTYPE, DeviceType);
-        PULL(D3DFORMAT, SourceFormat);
-        PULL(D3DFORMAT, TargetFormat);
-        const auto hresult = gpD3D->CheckDeviceFormatConversion(IN Adapter, IN DeviceType, IN SourceFormat, IN TargetFormat);
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(hresult);
-        }
-        break;
-      }
-      case IDirect3D9Ex_GetDeviceCaps:
-      {
-        PULL_U(Adapter);
-        PULL(D3DDEVTYPE, DeviceType);
-
-        D3DCAPS9 pCaps;
-        // Too many members in D3DCAPS so we just check the return value for now.
-        const auto hresult = gpD3D->GetDeviceCaps(IN Adapter, IN DeviceType, OUT & pCaps);
-        BRIDGE_ASSERT_LOG(SUCCEEDED(hresult), "Issue retrieving D3D9 device specific information");
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(hresult);
-          if (SUCCEEDED(hresult)) {
-            c.send_data(sizeof(D3DCAPS9), &pCaps);
-          }
-        }
-        break;
-      }
-      case IDirect3D9Ex_GetAdapterMonitor:
-      {
-        PULL_U(Adapter);
-        HMONITOR hmonitor = gpD3D->GetAdapterMonitor(IN Adapter);
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          // Truncate handle before sending back to client because it expects a 32-bit size handle
-          c.send_data(TRUNCATE_HANDLE(uint32_t, hmonitor));
-        }
-        break;
-      }
-      case IDirect3D9Ex_GetAdapterModeCountEx:
-      {
-        PULL_U(Adapter);
-        D3DDISPLAYMODEFILTER modeFilter;
-        PULL_DATA(sizeof(D3DDISPLAYMODEFILTER), modeFilter);
-        const auto cnt = ((IDirect3D9Ex*) gpD3D)->GetAdapterModeCountEx(Adapter, &modeFilter);
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(cnt);
-        }
-        break;
-      }
-      case IDirect3D9Ex_GetAdapterLUID:
-      {
-        PULL_U(Adapter);
-        LUID pLUID;
-        HRESULT hresult = ((IDirect3D9Ex*) gpD3D)->GetAdapterLUID(Adapter, &pLUID);
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(hresult);
-          if (SUCCEEDED(hresult)) {
-            c.send_data(sizeof(LUID), &pLUID);
-          }
-        }
-        break;
-      }
-      case IDirect3D9Ex_EnumAdapterModesEx:
-      {
-        PULL_U(Adapter);
-        PULL_U(Mode);
-        D3DDISPLAYMODEFILTER* pFilter = nullptr;
-        PULL_DATA(sizeof(D3DDISPLAYMODEFILTER), pFilter);
-        D3DDISPLAYMODEEX pMode;
-        HRESULT hresult = ((IDirect3D9Ex*) gpD3D)->EnumAdapterModesEx(Adapter, pFilter, Mode, &pMode);
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(hresult);
-          if (SUCCEEDED(hresult)) {
-            c.send_data(sizeof(D3DDISPLAYMODEEX), &pMode);
-          }
-        }
-        break;
-      }
-      case IDirect3D9Ex_GetAdapterDisplayModeEx:
-      {
-        PULL_U(Adapter);
-        D3DDISPLAYMODEEX* pMode = nullptr;
-        PULL_DATA(sizeof(D3DDISPLAYMODEEX), pMode);
-        D3DDISPLAYROTATION* pRotation = nullptr;
-        PULL_DATA(sizeof(D3DDISPLAYROTATION), pRotation);
-        HRESULT hresult = ((IDirect3D9Ex*) gpD3D)->GetAdapterDisplayModeEx(Adapter, pMode, pRotation);
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(hresult);
-          if (SUCCEEDED(hresult)) {
-            c.send_data(sizeof(D3DDISPLAYMODEEX), pMode);
-            c.send_data(sizeof(D3DDISPLAYROTATION), pRotation);
-          }
-        }
-        break;
-      }
       case IDirect3DDevice9Ex_GetDisplayModeEx:
       {
         GET_RES(pD3DDevice, gpD3DDevices);
@@ -593,78 +344,6 @@ void ProcessCommandQueue() {
         }
         assert(SUCCEEDED(hresult));
         SEND_OPTIONAL_SERVER_RESPONSE(hresult);
-        break;
-      }
-      case IDirect3D9Ex_CreateDeviceEx:
-      {
-        GET_HND(pHandle);
-        PULL_U(Adapter);
-        PULL(D3DDEVTYPE, DeviceType);
-        PULL(uint32_t, hFocusWindow);
-        PULL_D(BehaviorFlags);
-        D3DDISPLAYMODEEX* pFullscreenDisplayMode = nullptr;
-        PULL_DATA(sizeof(D3DDISPLAYMODEEX), pFullscreenDisplayMode);
-
-        uint32_t* rawPresentationParameters = nullptr;
-        ClientMessage::get_data((void**) &rawPresentationParameters);
-        D3DPRESENT_PARAMETERS PresentationParameters = getPresParamFromRaw(rawPresentationParameters);
-        if (!PresentationParameters.Windowed && !bDxvkModuleLoaded) {
-          bridge_util::Logger::err("Fullscreen is not yet supported for non-DXVK uses of the bridge. This is not recoverable. Exiting.");
-          done = true;
-        }
-
-        IDirect3DDevice9Ex* pD3DDevice = nullptr;
-        const auto hresult = ((IDirect3D9Ex*) gpD3D)->CreateDeviceEx(IN Adapter, IN DeviceType, IN TRUNCATE_HANDLE(HWND, hFocusWindow), IN BehaviorFlags, IN OUT & PresentationParameters, IN pFullscreenDisplayMode, OUT & pD3DDevice);
-        if (!SUCCEEDED(hresult)) {
-          std::stringstream ss;
-          ss << format_string("CreateDeviceEx() call failed with error code 0x%x", hresult) << std::endl;
-          Logger::err(ss.str());
-        } else {
-          Logger::info("Server side D3D9 DeviceEx created successfully!");
-          gpD3DDevices[pHandle] = pD3DDevice;
-        }
-
-        // Send response back to the client
-        Logger::debug("Sending CreateDevice ack response back to client.");
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(hresult);
-        }
-        break;
-      }
-      case IDirect3D9Ex_CreateDevice:
-      {
-        GET_HND(pHandle);
-        PULL_U(Adapter);
-        PULL(D3DDEVTYPE, DeviceType);
-        PULL(uint32_t, hFocusWindow);
-        PULL_D(BehaviorFlags);
-
-        uint32_t* rawPresentationParameters = nullptr;
-        ClientMessage::get_data((void**) &rawPresentationParameters);
-        D3DPRESENT_PARAMETERS PresentationParameters = getPresParamFromRaw(rawPresentationParameters);
-        if (!PresentationParameters.Windowed && !bDxvkModuleLoaded) {
-          bridge_util::Logger::err("Fullscreen is not yet supported for non-DXVK uses of the bridge. This is not recoverable. Exiting.");
-          done = true;
-        }
-        
-        IDirect3DDevice9* pD3DDevice = nullptr;
-        const auto hresult = gpD3D->CreateDevice(IN Adapter, IN DeviceType, IN TRUNCATE_HANDLE(HWND, hFocusWindow), IN BehaviorFlags, IN OUT & PresentationParameters, OUT & pD3DDevice);
-        if (!SUCCEEDED(hresult)) {
-          std::stringstream ss;
-          ss << format_string("CreateDevice() call failed with error code 0x%x", hresult) << std::endl;
-          Logger::err(ss.str());
-        } else {
-          Logger::info("Server side D3D9 Device created successfully!");
-          gpD3DDevices[pHandle] = (IDirect3DDevice9Ex*) pD3DDevice;
-        }
-
-        // Send response back to the client
-        Logger::debug("Sending CreateDevice ack response back to client.");
-        {
-          ServerMessage c(Commands::Bridge_Response);
-          c.send_data(hresult);
-        }
         break;
       }
 
@@ -827,7 +506,7 @@ void ProcessCommandQueue() {
         GET_RES(pD3DDevice, gpD3DDevices);
         PULL_HND(pHandle);
         uint32_t* rawPresentationParameters = nullptr;
-        ClientMessage::get_data((void**) &rawPresentationParameters);
+        DeviceBridge::get_data((void**) &rawPresentationParameters);
         D3DPRESENT_PARAMETERS PresentationParameters = getPresParamFromRaw(rawPresentationParameters);
         IDirect3DSwapChain9* pSwapChain = nullptr;
         const auto hresult = pD3DDevice->CreateAdditionalSwapChain(&PresentationParameters, &pSwapChain);
@@ -863,7 +542,7 @@ void ProcessCommandQueue() {
       {
         GET_RES(pD3DDevice, gpD3DDevices);
         uint32_t* rawPresentationParameters = nullptr;
-        ClientMessage::get_data((void**) &rawPresentationParameters);
+        DeviceBridge::get_data((void**) &rawPresentationParameters);
         D3DPRESENT_PARAMETERS PresentationParameters = getPresParamFromRaw(rawPresentationParameters);
         if (!PresentationParameters.Windowed && !bDxvkModuleLoaded) {
           bridge_util::Logger::err("Fullscreen is not yet supported for non-DXVK uses of the bridge. This is not recoverable. Exiting.");
@@ -1521,7 +1200,7 @@ void ProcessCommandQueue() {
         PULL(D3DPRIMITIVETYPE, PrimitiveType);
         PULL_U(PrimitiveCount);
         void* pVertexStreamZeroData = nullptr;
-        ClientMessage::get_data(&pVertexStreamZeroData);
+        DeviceBridge::get_data(&pVertexStreamZeroData);
         PULL_U(VertexStreamZeroStride);
         const auto hresult = pD3DDevice->DrawPrimitiveUP(IN PrimitiveType, IN PrimitiveCount, IN pVertexStreamZeroData, IN VertexStreamZeroStride);
         assert(SUCCEEDED(hresult));
@@ -1539,9 +1218,9 @@ void ProcessCommandQueue() {
         PULL_U(VertexStreamZeroStride);
 
         void* pIndexData = nullptr;
-        ClientMessage::get_data(&pIndexData);
+        DeviceBridge::get_data(&pIndexData);
         void* pVertexStreamZeroData = nullptr;
-        ClientMessage::get_data(&pVertexStreamZeroData);
+        DeviceBridge::get_data(&pVertexStreamZeroData);
 
         const auto hresult = pD3DDevice->DrawIndexedPrimitiveUP(IN PrimitiveType, IN MinVertexIndex, IN NumVertices, IN PrimitiveCount, IN pIndexData, IN IndexDataFormat, IN pVertexStreamZeroData, IN VertexStreamZeroStride);
         assert(SUCCEEDED(hresult));
@@ -2383,7 +2062,7 @@ void ProcessCommandQueue() {
 #ifdef SEND_ALL_LOCK_DATA_AT_ONCE
         void* data = nullptr;
         const auto slice_size = row_size * height;
-        size_t pulledSize = ClientMessage::get_data(&data);
+        size_t pulledSize = DeviceBridge::get_data(&data);
 #endif
         for (uint32_t z = 0; z < depth; z++) {
           for (uint32_t y = 0; y < height; y++) {
@@ -2392,7 +2071,7 @@ void ProcessCommandQueue() {
             auto row = (uintptr_t) data + y * row_size + z * slice_size;
 #else
             void* row = nullptr;
-            const auto read_size = ClientMessage::get_data(&row);
+            const auto read_size = DeviceBridge::get_data(&row);
             assert(row_size == read_size);
 #endif
             memcpy((void*) ptr, (void*) row, row_size);
@@ -2566,7 +2245,7 @@ void ProcessCommandQueue() {
           PULL_U(allocId);
           data = SharedHeap::getBuf(allocId) + OffsetToLock;
         } else {
-          const auto size = ClientMessage::get_data(&data);
+          const auto size = DeviceBridge::get_data(&data);
           assert(SizeToLock == size);
         }
         memcpy(pbData, data, SizeToLock);
@@ -2648,7 +2327,7 @@ void ProcessCommandQueue() {
           PULL_U(allocId);
           data = SharedHeap::getBuf(allocId) + OffsetToLock;
         } else {
-          const auto size = ClientMessage::get_data(&data);
+          const auto size = DeviceBridge::get_data(&data);
           assert(SizeToLock == size);
         }
         memcpy(pbData, data, SizeToLock);
@@ -2752,7 +2431,7 @@ void ProcessCommandQueue() {
           const size_t byteOffset = bridge_util::calcImageByteOffset(IncomingPitch, *pRect, format);
           pData = SharedHeap::getBuf(allocId) + byteOffset;
         } else {
-          size_t pulledSize = ClientMessage::get_data(&pData);
+          size_t pulledSize = DeviceBridge::get_data(&pData);
           const size_t numRows = bridge_util::calcStride(height, format);
           assert(pulledSize == numRows * IncomingPitch);
         }
@@ -2835,7 +2514,7 @@ void ProcessCommandQueue() {
 #ifdef SEND_ALL_LOCK_DATA_AT_ONCE
         void* data = nullptr;
         const auto slice_size = row_size * height;
-        size_t pulledSize = ClientMessage::get_data(&data);
+        size_t pulledSize = DeviceBridge::get_data(&data);
 #endif
         for (uint32_t z = 0; z < depth; z++) {
           for (uint32_t y = 0; y < height; y++) {
@@ -2844,7 +2523,7 @@ void ProcessCommandQueue() {
             auto row = (uintptr_t) data + y * row_size + z * slice_size;
 #else
             void* row = nullptr;
-            const auto read_size = ClientMessage::get_data(&row);
+            const auto read_size = DeviceBridge::get_data(&row);
             assert(row_size == read_size);
 #endif
             memcpy((void*) ptr, (void*) row, row_size);
@@ -2884,9 +2563,9 @@ void ProcessCommandQueue() {
       case Bridge_DebugMessage:
       {
         PULL_U(i);
-        const int length = gClientChannel.data->peek();
+        const int length = DeviceBridge::getReaderChannel().data->peek();
         void* text = nullptr;
-        const int size = gClientChannel.data->pull(&text);
+        const int size = DeviceBridge::getReaderChannel().data->pull(&text);
         std::stringstream ss;
         ss << "DebugMessage. i = " << i << ", length = " << length << " = " << size << ", text = '" << (char*) text << "'";
         Logger::info(ss.str().c_str());
@@ -2894,7 +2573,6 @@ void ProcessCommandQueue() {
       }
       case Bridge_Terminate:
       {
-        ServerMessage { Commands::Bridge_Ack };
         done = true;
         break;
       }
@@ -2934,19 +2612,19 @@ void ProcessCommandQueue() {
     // Ensure the data position between client and server is in sync after processing the command
     assert(CHECK_DATA_OFFSET);
 
-    *gClientChannel.serverDataPos = ClientMessage::get_data_pos();
+    *DeviceBridge::getReaderChannel().serverDataPos = DeviceBridge::get_data_pos();
     // Check if override condition was met
-    if (*gClientChannel.clientDataExpectedPos != -1) {
+    if (*DeviceBridge::getReaderChannel().clientDataExpectedPos != -1) {
       Logger::warn("Data Queue override condition triggered");
       // Check if server needs to complete a loop and the position was read
-      if (*gClientChannel.serverDataPos > *gClientChannel.clientDataExpectedPos && !gClientChannel.serverResetPosRequired) {
-        gClientChannel.dataSemaphore->release(1);
-        *gClientChannel.clientDataExpectedPos = -1;
+      if (*DeviceBridge::getReaderChannel().serverDataPos > *DeviceBridge::getReaderChannel().clientDataExpectedPos && !DeviceBridge::getReaderChannel().serverResetPosRequired) {
+        DeviceBridge::getReaderChannel().dataSemaphore->release(1);
+        *DeviceBridge::getReaderChannel().clientDataExpectedPos = -1;
         Logger::info("DataQueue override condition resolved");
       }
     }
 
-    const auto count = ClientMessage::end_read_data();
+    const auto count = DeviceBridge::end_read_data();
 
 #ifdef ENABLE_DATA_BATCHING_TRACE
     Logger::trace(format_string("Finished batch data read with %d data items.", count));
@@ -3135,12 +2813,8 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
   }
   LocalFree(argList);
 
-  // Get access to the shared memory pool allocator
-  gClientChannel.initMem(shared_names::gClientChannelName, GlobalOptions::getClientChannelMemSize());
-  gClientChannel.initQueues(shared_names::gClientQueueName, Accessor::Reader, GlobalOptions::getClientCmdMemSize(), GlobalOptions::getClientCmdQueueSize(), GlobalOptions::getClientDataMemSize(), GlobalOptions::getClientDataQueueSize());
-  // Setup Server IPC
-  gServerChannel.initMem(shared_names::gServerChannelName, GlobalOptions::getServerChannelMemSize());
-  gServerChannel.initQueues(shared_names::gServerQueueName, Accessor::Writer, GlobalOptions::getServerCmdMemSize(), GlobalOptions::getServerCmdQueueSize(), GlobalOptions::getServerDataMemSize(), GlobalOptions::getServerDataQueueSize());
+  initModuleBridge();
+  initDeviceBridge();
 
   if (GlobalOptions::getUseSharedHeap()) {
     SharedHeap::init();
@@ -3151,7 +2825,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
   // Initialize our shared client command queue as a Reader.
   // (1) Wait for connection for client.
   Logger::info("Server started up, waiting for connection from client...");
-  const auto waitForSynResult = ClientMessage::waitForCommand(Bridge_Syn, GlobalOptions::getStartupTimeout());
+  const auto waitForSynResult = DeviceBridge::waitForCommand(Bridge_Syn, GlobalOptions::getStartupTimeout());
   switch (waitForSynResult) {
   case Result::Timeout:
   {
@@ -3165,7 +2839,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     return 1;
   }
   }
-  const auto synResponse = ClientMessage::pop_front(); // Get process handle from Syn response
+  const auto synResponse = DeviceBridge::pop_front(); // Get process handle from Syn response
   Logger::info("Registering exit callback in case client exits unexpectedly.");
   RegisterExitCallback(synResponse.pHandle);
 
@@ -3183,7 +2857,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
   // (4) Wait for second expected cmd: CONTINUE (ACK v. 2)
   Logger::info("Done! Now waiting for client to consume the response...");
-  const auto WaitForContinueResult = ClientMessage::waitForCommandAndDiscard(Bridge_Continue, GlobalOptions::getStartupTimeout());
+  const auto WaitForContinueResult = DeviceBridge::waitForCommandAndDiscard(Bridge_Continue, GlobalOptions::getStartupTimeout());
   switch (WaitForContinueResult) {
   case Result::Timeout:
   {
@@ -3200,8 +2874,18 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
   // (5) Ready to listen for incoming commands
   Logger::info("Handshake completed! Now waiting for incoming commands...");
 
-  // Process client commands
-  ProcessCommandQueue();
+  std::atomic<bool> bSignalDone(false);
+  auto moduleCmdProcessingThread = std::thread([&](){
+    processModuleCommandQueue(&bSignalDone);
+  });
+  // Process device commands
+  ProcessDeviceCommandQueue();
+  bSignalDone.store(true);
+  moduleCmdProcessingThread.join();
+
+  if (!dumpLeakedObjects()) {
+    bridge_util::Logger::debug("No leaked objects dicovered at Direct3D module eviction.");
+  }
 
   // Command processing finished, clean up and exit
   Logger::info("Command processing loop finished, cleaning up and exiting...");
@@ -3230,5 +2914,9 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
     std::chrono::duration_cast<std::chrono::seconds>(timeEnd - gTimeStart).count();
   uptimeSS << "s";
   Logger::info(uptimeSS.str());
+
+  {
+    ServerMessage { Commands::Bridge_Ack };
+  }
   return 0;
 }

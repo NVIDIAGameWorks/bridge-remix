@@ -21,6 +21,7 @@
 #############################################################################
 
 util_src = files([
+	'util_bridgecommand.cpp',
 	'util_gdi.cpp',
 	'util_messagechannel.cpp',
 	'util_process.cpp',
@@ -42,10 +43,10 @@ util_header = files([
 	'util_bytes.h',
 	'util_circularbuffer.h',
 	'util_circularqueue.h',
-	'util_clientcommand.h',
 	'util_commands.h',
 	'util_common.h',
 	'util_detourtools.h',
+    'util_devicecommand.h',
 	'util_filesys.h',
 	'util_gdi.h',
 	'util_guid.h',
@@ -58,8 +59,6 @@ util_header = files([
 	'util_seh.h',
 	'util_semaphore.h',
 	'util_serializer.h',
-	'util_servercommand.h',
-	'util_sharedheap.h',
 	'util_sharedmemory.h',
 	'util_singleton.h',
 	'util_texture_and_volume.h',

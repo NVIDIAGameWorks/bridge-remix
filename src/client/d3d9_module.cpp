@@ -26,8 +26,17 @@
 #include "remix_state.h"
 
 #include "util_bridge_assert.h"
-#include "util_servercommand.h"
+#include "util_modulecommand.h"
 
+#undef WAIT_FOR_SERVER_RESPONSE
+#define WAIT_FOR_SERVER_RESPONSE(func, value) \
+  { \
+    const uint32_t timeoutMs = GlobalOptions::getAckTimeout(); \
+    if (Result::Success != ModuleBridge::waitForCommandAndDiscard(Commands::Bridge_Response, timeoutMs)) { \
+      Logger::err(func " failed with: no response from server."); \
+      return value; \
+    } \
+  }
 
 // This is a modified version of the original hash_combine function
 // from Boost. See: https://github.com/boostorg/container_hash
@@ -74,14 +83,14 @@ ULONG Direct3D9Ex_LSS::Release() {
 
 void Direct3D9Ex_LSS::onDestroy() {
   // Make sure server processed all pending commands
-  if (ClientMessage::ensureQueueEmpty() != Result::Success) {
+  if (ModuleBridge::ensureQueueEmpty() != Result::Success) {
     Logger::warn("Command queue was not flushed at Direct3D module eviction.");
   }
 
-  ClientMessage { Commands::IDirect3D9Ex_Destroy, getId() };
+  ModuleClientCommand { Commands::IDirect3D9Ex_Destroy, getId() };
 
   // Make sure server consumed IDirect3D9Ex_Destroy
-  ClientMessage::ensureQueueEmpty();
+  ModuleBridge::ensureQueueEmpty();
 }
 
 HRESULT Direct3D9Ex_LSS::RegisterSoftwareDevice(void* pInitializeFunction) {
@@ -99,11 +108,11 @@ UINT Direct3D9Ex_LSS::GetAdapterCount() {
 
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_GetAdapterCount);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterCount);
   }
   WAIT_FOR_SERVER_RESPONSE("GetAdapterCount()", 0);
 
-  m_adapterCount = (UINT) ServerMessage::get_data();
+  m_adapterCount = (UINT) ModuleBridge::get_data();
   return m_adapterCount;
 }
 
@@ -127,15 +136,15 @@ HRESULT Direct3D9Ex_LSS::GetAdapterIdentifier(UINT Adapter, DWORD Flags, D3DADAP
 
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_GetAdapterIdentifier);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterIdentifier);
     c.send_many(Adapter, Flags);
   }
   WAIT_FOR_SERVER_RESPONSE("GetAdapterIdentifier()", E_FAIL);
 
-  HRESULT hresult = ServerMessage::get_data();
+  HRESULT hresult = ModuleBridge::get_data();
   if (SUCCEEDED(hresult)) {
     D3DADAPTER_IDENTIFIER9& adapterIdentifier = m_adapterIdentifiers[key];
-    uint32_t len = ServerMessage::copy_data(adapterIdentifier, false);
+    uint32_t len = ModuleBridge::copy_data(adapterIdentifier, false);
     // The structs are essentially the same, but the x64 side adds 4 extra bytes for padding
     if (len != (sizeof(D3DADAPTER_IDENTIFIER9) + 4) && len != 0) {
       Logger::err("GetAdapterIdentifier() failed due to issue with data returned from server.");
@@ -161,12 +170,12 @@ UINT Direct3D9Ex_LSS::GetAdapterModeCount(UINT Adapter, D3DFORMAT Format) {
 
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_GetAdapterModeCount);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterModeCount);
     c.send_many(Adapter, Format);
   }
   WAIT_FOR_SERVER_RESPONSE("GetAdapterModeCount()", 0);
 
-  m_adapterModeCount[key] = (UINT) ServerMessage::get_data();
+  m_adapterModeCount[key] = (UINT) ModuleBridge::get_data();
   return m_adapterModeCount[key];
 }
 
@@ -186,15 +195,15 @@ HRESULT Direct3D9Ex_LSS::EnumAdapterModes(UINT Adapter, D3DFORMAT Format, UINT M
 
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_EnumAdapterModes);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_EnumAdapterModes);
     c.send_many(Adapter, Format, Mode);
   }
   WAIT_FOR_SERVER_RESPONSE("EnumAdapterModes()", D3DERR_INVALIDCALL);
 
-  HRESULT hresult = ServerMessage::get_data();
+  HRESULT hresult = ModuleBridge::get_data();
   if (SUCCEEDED(hresult)) {
     D3DDISPLAYMODE& adapterMode = m_enumAdapterMode[key];
-    uint32_t len = ServerMessage::copy_data(adapterMode);
+    uint32_t len = ModuleBridge::copy_data(adapterMode);
     if (len != sizeof(D3DDISPLAYMODE) && len != 0) {
       Logger::err("EnumAdapterModes() failed due to issue with data returned from server.");
       return D3DERR_INVALIDCALL;
@@ -219,15 +228,15 @@ HRESULT Direct3D9Ex_LSS::GetAdapterDisplayMode(UINT Adapter, D3DDISPLAYMODE* pMo
 
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_GetAdapterDisplayMode);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterDisplayMode);
     c.send_data(Adapter);
   }
   WAIT_FOR_SERVER_RESPONSE("GetAdapterDisplayMode()", D3DERR_INVALIDCALL);
 
-  HRESULT hresult = ServerMessage::get_data();
+  HRESULT hresult = ModuleBridge::get_data();
   if (SUCCEEDED(hresult)) {
     D3DDISPLAYMODE& displayMode = m_adapterDisplayMode[Adapter];
-    uint32_t len = ServerMessage::copy_data(displayMode);
+    uint32_t len = ModuleBridge::copy_data(displayMode);
     if (len != sizeof(D3DDISPLAYMODE) && len != 0) {
       Logger::err("GetAdapterDisplayMode() failed due to issue with data returned from server.");
       return D3DERR_INVALIDCALL;
@@ -247,12 +256,12 @@ HRESULT Direct3D9Ex_LSS::CheckDeviceType(UINT Adapter, D3DDEVTYPE CheckType, D3D
 
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_CheckDeviceType);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDeviceType);
     c.send_many(Adapter, CheckType, DisplayFormat, BackBufferFormat, Windowed);
   }
   WAIT_FOR_SERVER_RESPONSE("CheckDeviceType()", E_FAIL);
 
-  HRESULT res = (HRESULT) ServerMessage::get_data();
+  HRESULT res = (HRESULT) ModuleBridge::get_data();
   return res;
 }
 
@@ -266,12 +275,12 @@ HRESULT Direct3D9Ex_LSS::CheckDeviceFormat(UINT Adapter, D3DDEVTYPE DeviceType, 
 
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_CheckDeviceFormat);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDeviceFormat);
     c.send_many(Adapter, DeviceType, AdapterFormat, Usage, RType, CheckFormat);
   }
   WAIT_FOR_SERVER_RESPONSE("CheckDeviceFormat()", E_FAIL);
 
-  HRESULT res = (HRESULT) ServerMessage::get_data();
+  HRESULT res = (HRESULT) ModuleBridge::get_data();
   return res;
 }
 
@@ -289,13 +298,13 @@ HRESULT Direct3D9Ex_LSS::CheckDeviceMultiSampleType(UINT Adapter, D3DDEVTYPE Dev
 
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_CheckDeviceMultiSampleType);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDeviceMultiSampleType);
     c.send_many(Adapter, DeviceType, SurfaceFormat, Windowed, MultiSampleType);
   }
   WAIT_FOR_SERVER_RESPONSE("CheckDeviceMultiSampleType()", E_FAIL);
 
-  HRESULT res = (HRESULT) ServerMessage::get_data();
-  DWORD QualityLevelsLocal = (DWORD) ServerMessage::get_data();
+  HRESULT res = (HRESULT) ModuleBridge::get_data();
+  DWORD QualityLevelsLocal = (DWORD) ModuleBridge::get_data();
 
   if (pQualityLevels != NULL) {
     *pQualityLevels = QualityLevelsLocal;
@@ -314,12 +323,12 @@ HRESULT Direct3D9Ex_LSS::CheckDepthStencilMatch(UINT Adapter, D3DDEVTYPE DeviceT
 
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_CheckDepthStencilMatch);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDepthStencilMatch);
     c.send_many(Adapter, DeviceType, AdapterFormat, RenderTargetFormat, DepthStencilFormat);
   }
   WAIT_FOR_SERVER_RESPONSE("CheckDepthStencilMatch()", E_FAIL);
 
-  HRESULT res = (HRESULT) ServerMessage::get_data();
+  HRESULT res = (HRESULT) ModuleBridge::get_data();
   return res;
 }
 
@@ -333,12 +342,12 @@ HRESULT Direct3D9Ex_LSS::CheckDeviceFormatConversion(UINT Adapter, D3DDEVTYPE De
 
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_CheckDeviceFormatConversion);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDeviceFormatConversion);
     c.send_many(Adapter, DeviceType, SourceFormat, TargetFormat);
   }
   WAIT_FOR_SERVER_RESPONSE("CheckDeviceFormatConversion()", E_FAIL);
 
-  HRESULT res = (HRESULT) ServerMessage::get_data();
+  HRESULT res = (HRESULT) ModuleBridge::get_data();
   return res;
 }
 
@@ -361,16 +370,16 @@ HRESULT Direct3D9Ex_LSS::GetDeviceCaps(UINT Adapter, D3DDEVTYPE DeviceType, D3DC
 
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_GetDeviceCaps);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_GetDeviceCaps);
     c.send_many(Adapter, DeviceType);
   }
 
   WAIT_FOR_SERVER_RESPONSE("GetDeviceCaps()", D3DERR_INVALIDCALL);
 
-  HRESULT hresult = ServerMessage::get_data();
+  HRESULT hresult = ModuleBridge::get_data();
   if (SUCCEEDED(hresult)) {
     D3DCAPS9& deviceCaps = m_deviceCaps[key];
-    uint32_t len = ServerMessage::copy_data(deviceCaps);
+    uint32_t len = ModuleBridge::copy_data(deviceCaps);
     if (len != sizeof(D3DCAPS9) && len != 0) {
       Logger::err("GetDeviceCaps() failed due to issue with data returned from server.");
       return D3DERR_INVALIDCALL;
@@ -385,12 +394,12 @@ HMONITOR Direct3D9Ex_LSS::GetAdapterMonitor(UINT Adapter) {
 
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_GetAdapterMonitor);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterMonitor);
     c.send_data(Adapter);
   }
   WAIT_FOR_SERVER_RESPONSE("GetAdapterMonitor()", 0);
 
-  HMONITOR monitor = (HMONITOR) ServerMessage::get_data();
+  HMONITOR monitor = (HMONITOR) ModuleBridge::get_data();
   return monitor;
 }
 
@@ -421,13 +430,13 @@ UINT Direct3D9Ex_LSS::GetAdapterModeCountEx(UINT Adapter, CONST D3DDISPLAYMODEFI
   UINT cnt = 0;
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_GetAdapterModeCountEx, getId());
+    ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterModeCountEx, getId());
     c.send_data(Adapter);
     c.send_data(sizeof(D3DDISPLAYMODEFILTER), pFilter);
   }
   WAIT_FOR_SERVER_RESPONSE("GetAdapterModeCountEx()", cnt);
 
-  cnt = (UINT) ServerMessage::get_data();
+  cnt = (UINT) ModuleBridge::get_data();
   return cnt;
 }
 
@@ -446,16 +455,16 @@ HRESULT Direct3D9Ex_LSS::EnumAdapterModesEx(UINT Adapter, CONST D3DDISPLAYMODEFI
 
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_EnumAdapterModesEx);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_EnumAdapterModesEx);
     c.send_data(Adapter);
     c.send_data(Mode);
     c.send_data(sizeof(D3DDISPLAYMODEFILTER), pFilter);
   }
   WAIT_FOR_SERVER_RESPONSE("EnumAdapterModesEx()", D3DERR_INVALIDCALL);
 
-  HRESULT hresult = ServerMessage::get_data();
+  HRESULT hresult = ModuleBridge::get_data();
   if (SUCCEEDED(hresult)) {
-    uint32_t len = ServerMessage::copy_data(*pMode);
+    uint32_t len = ModuleBridge::copy_data(*pMode);
     if (len != sizeof(D3DDISPLAYMODEEX) && len != 0) {
       Logger::err("EnumAdapterModesEx() failed due to issue with data returned from server.");
       return D3DERR_INVALIDCALL;
@@ -479,22 +488,22 @@ HRESULT Direct3D9Ex_LSS::GetAdapterDisplayModeEx(UINT Adapter, D3DDISPLAYMODEEX*
 
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_GetAdapterDisplayModeEx);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterDisplayModeEx);
     c.send_data(Adapter);
     c.send_data(sizeof(D3DDISPLAYMODEEX), pMode);
     c.send_data(sizeof(D3DDISPLAYROTATION), pRotation);
   }
   WAIT_FOR_SERVER_RESPONSE("GetAdapterDisplayModeEx()", D3DERR_INVALIDCALL);
 
-  HRESULT hresult = ServerMessage::get_data();
+  HRESULT hresult = ModuleBridge::get_data();
   if (SUCCEEDED(hresult)) {
-    uint32_t len = ServerMessage::copy_data(*pMode);
+    uint32_t len = ModuleBridge::copy_data(*pMode);
     if (len != sizeof(D3DDISPLAYMODEEX) && len != 0) {
       Logger::err("GetAdapterDisplayModeEx() failed due to issue with data returned from server.");
       return D3DERR_INVALIDCALL;
     }
 
-    len = ServerMessage::copy_data(*pRotation);
+    len = ModuleBridge::copy_data(*pRotation);
     if (len != sizeof(D3DDISPLAYROTATION) && len != 0) {
       Logger::err("GetAdapterDisplayModeEx() failed due to issue with data returned from server.");
       return D3DERR_INVALIDCALL;
@@ -531,14 +540,14 @@ HRESULT Direct3D9Ex_LSS::GetAdapterLUID(UINT Adapter, LUID* pLUID) {
   }
   // Send command to server and wait for response
   {
-    ClientMessage c(Commands::IDirect3D9Ex_GetAdapterLUID);
+    ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterLUID);
     c.send_data(Adapter);
   }
   WAIT_FOR_SERVER_RESPONSE("GetAdapterLUID()", D3DERR_INVALIDCALL);
 
-  HRESULT hresult = ServerMessage::get_data();
+  HRESULT hresult = ModuleBridge::get_data();
   if (SUCCEEDED(hresult)) {
-    uint32_t len = ServerMessage::copy_data(*pLUID);
+    uint32_t len = ModuleBridge::copy_data(*pLUID);
     if (len != sizeof(LUID) && len != 0) {
       Logger::err("GetAdapterLUID() failed due to issue with data returned from server.");
       return D3DERR_INVALIDCALL;

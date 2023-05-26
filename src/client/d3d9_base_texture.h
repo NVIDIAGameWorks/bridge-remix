@@ -26,7 +26,7 @@
 
 #include "d3d9_resource.h"
 #include "d3d9_surface.h"
-#include "util_servercommand.h"
+#include "util_devicecommand.h"
 
 #include <d3d9.h>
 

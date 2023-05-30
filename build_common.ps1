@@ -38,6 +38,13 @@ function SetupVS {
 	}
 	Write-Host "vswhere found at: $vsWhere" -ForegroundColor Yellow
 
+	$gitArgs = "submodule update --init --recursive"
+	# Start-Process "git" -NoNewWindow -ArgumentList $gitArgs -wait
+	git $gitArgs
+	if ( $LASTEXITCODE -ne 0 ) {
+		Write-Output "Failed to submodule update"
+		exit $LASTEXITCODE
+	}
 
 	#
 	# Get path to Visual Studio installation using vswhere.
@@ -89,7 +96,7 @@ function PerformBuild {
 
 	Push-Location $CurrentDir
 		$mesonArgs = "setup --buildtype `"$BuildFlavour`" --backend vs `"$BuildSubDir`" --debug"
-		Start-Process "meson" -ArgumentList $mesonArgs -wait
+		Start-Process "meson" -NoNewWindow -ArgumentList $mesonArgs -wait
 	Pop-Location
 
 	if ( $LASTEXITCODE -ne 0 ) {

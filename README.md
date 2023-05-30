@@ -16,17 +16,6 @@ The free Commmunity Edition of Visual Studio will work fine.
 
 [Meson](https://mesonbuild.com/) - v0.61.4 has been tested, latest version should work. Follow [instructions](https://mesonbuild.com/SimpleStart.html#installing-meson) on how to install and reboot the PC before moving on (Meson will indicate as much).
 
-Ensure that you have cloned the entire repository correctly, including all the submodules. You can use the following command to clone the repository along with its submodules:
-```
-git clone --recursive https://github.com/NVIDIAGameWorks/bridge-remix.git
-```
-
-If the clone was made non-recursively and the submodules are missing, change your working directory to the root of the cloned repository and run the following commands:
-```
-cd bridge-remix
-git submodule update --init --recursive
-```
-
 Make sure PowerShell scripts are enabled. One-time system setup: run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned` in an elevated PowerShell prompt, then close and reopen any existing PowerShell prompts.
 
 # How to build

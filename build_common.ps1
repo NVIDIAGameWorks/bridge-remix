@@ -38,13 +38,26 @@ function SetupVS {
 	}
 	Write-Host "vswhere found at: $vsWhere" -ForegroundColor Yellow
 
-	$gitArgs = "submodule update --init --recursive"
-	# Start-Process "git" -NoNewWindow -ArgumentList $gitArgs -wait
-	git $gitArgs
+
+	#
+	# Update submodules
+	#
+	git submodule update --init --recursive
 	if ( $LASTEXITCODE -ne 0 ) {
-		Write-Output "Failed to submodule update"
+		Write-Output "Failed to update submodules"
 		exit $LASTEXITCODE
 	}
+	Write-Host "Submodules updated" -ForegroundColor Yellow
+
+	#
+	# Make sure the external sources are exists
+	#
+	$CurrentDir = Get-Location
+	$detoursDir = [IO.Path]::Combine($CurrentDir, "ext", "Detours", "src")
+	if ( !( Test-Path -Path $detoursDir ) ) {
+		Write-Error "Detours not found. Aborting" -ErrorAction Stop
+	}
+	Write-Host "Detours found at: $detoursDir" -ForegroundColor Yellow
 
 	#
 	# Get path to Visual Studio installation using vswhere.

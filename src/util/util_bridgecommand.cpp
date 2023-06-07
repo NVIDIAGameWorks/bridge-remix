@@ -197,7 +197,9 @@ DECL_BRIDGE_FUNC(bridge_util::Result, waitForCommand, const Commands::D3D9Comman
         // Set timeout for consecutive peeks to 1ms to relieve spin-waits.
         peekTimeoutMS = 1;
         // Decrease the attempt counter so it won't overrun maxAttempts in case it did not capture infinite retries.
-        --attemptNum;
+        if (attemptNum > 0) {
+          --attemptNum;
+        }
         // Set the flag so that the consecutive peek 1ms-timeout would not generate a failure in case if
         // infinite retries are revoked in the process.
         infiniteRetries = true;

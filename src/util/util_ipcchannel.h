@@ -100,6 +100,7 @@ public:
   bridge_util::DataQueue* const      data;
   bridge_util::NamedSemaphore* const dataSemaphore;
   std::atomic<bool>* const           pbCmdInProgress;
+  mutable std::mutex m_mutex;
 };
 using WriterChannel = IpcChannel<bridge_util::Accessor::Writer>;
 using ReaderChannel = IpcChannel<bridge_util::Accessor::Reader>;

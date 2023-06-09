@@ -34,6 +34,9 @@
 
 extern bool gbBridgeRunning;
 
+#define BRIDGE_COMMAND_LOCKGUARD(currentMutex) \
+   std::scoped_lock lockObj(currentMutex); \
+
 #define WAIT_FOR_SERVER_RESPONSE(func, value) \
   { \
     const uint32_t timeoutMs = GlobalOptions::getAckTimeout(); \
@@ -289,12 +292,10 @@ private:
   Bridge() = delete;
   Bridge(const Bridge&) = delete;
   Bridge(const Bridge&&) = delete;
-
   static inline WriterChannel* s_pWriterChannel = nullptr;
   static inline ReaderChannel* s_pReaderChannel = nullptr;
   static inline int32_t        s_curBatchStartPos = -1;
   static inline size_t         s_cmdCounter = 0;
-  
 #if defined(REMIX_BRIDGE_CLIENT)
   static constexpr char kWriterChannelName[] = "Client2Server";
   static constexpr char kReaderChannelName[] = "Server2Client";

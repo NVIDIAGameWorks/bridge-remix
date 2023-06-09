@@ -28,6 +28,9 @@
 #include "util_bridge_assert.h"
 #include "util_modulecommand.h"
 
+#define BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD \
+   BRIDGE_COMMAND_LOCKGUARD(ModuleBridge::getWriterChannel().m_mutex) \
+
 #undef WAIT_FOR_SERVER_RESPONSE
 #define WAIT_FOR_SERVER_RESPONSE(func, value) \
   { \
@@ -87,7 +90,10 @@ void Direct3D9Ex_LSS::onDestroy() {
     Logger::warn("Command queue was not flushed at Direct3D module eviction.");
   }
 
-  ModuleClientCommand { Commands::IDirect3D9Ex_Destroy, getId() };
+  {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
+    ModuleClientCommand { Commands::IDirect3D9Ex_Destroy, getId() };
+  }
 
   // Make sure server consumed IDirect3D9Ex_Destroy
   ModuleBridge::ensureQueueEmpty();
@@ -108,6 +114,7 @@ UINT Direct3D9Ex_LSS::GetAdapterCount() {
 
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterCount);
   }
   WAIT_FOR_SERVER_RESPONSE("GetAdapterCount()", 0);
@@ -136,6 +143,7 @@ HRESULT Direct3D9Ex_LSS::GetAdapterIdentifier(UINT Adapter, DWORD Flags, D3DADAP
 
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterIdentifier);
     c.send_many(Adapter, Flags);
   }
@@ -170,6 +178,7 @@ UINT Direct3D9Ex_LSS::GetAdapterModeCount(UINT Adapter, D3DFORMAT Format) {
 
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterModeCount);
     c.send_many(Adapter, Format);
   }
@@ -195,6 +204,7 @@ HRESULT Direct3D9Ex_LSS::EnumAdapterModes(UINT Adapter, D3DFORMAT Format, UINT M
 
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_EnumAdapterModes);
     c.send_many(Adapter, Format, Mode);
   }
@@ -228,6 +238,7 @@ HRESULT Direct3D9Ex_LSS::GetAdapterDisplayMode(UINT Adapter, D3DDISPLAYMODE* pMo
 
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterDisplayMode);
     c.send_data(Adapter);
   }
@@ -256,6 +267,7 @@ HRESULT Direct3D9Ex_LSS::CheckDeviceType(UINT Adapter, D3DDEVTYPE CheckType, D3D
 
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDeviceType);
     c.send_many(Adapter, CheckType, DisplayFormat, BackBufferFormat, Windowed);
   }
@@ -275,6 +287,7 @@ HRESULT Direct3D9Ex_LSS::CheckDeviceFormat(UINT Adapter, D3DDEVTYPE DeviceType, 
 
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDeviceFormat);
     c.send_many(Adapter, DeviceType, AdapterFormat, Usage, RType, CheckFormat);
   }
@@ -298,6 +311,7 @@ HRESULT Direct3D9Ex_LSS::CheckDeviceMultiSampleType(UINT Adapter, D3DDEVTYPE Dev
 
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDeviceMultiSampleType);
     c.send_many(Adapter, DeviceType, SurfaceFormat, Windowed, MultiSampleType);
   }
@@ -323,6 +337,7 @@ HRESULT Direct3D9Ex_LSS::CheckDepthStencilMatch(UINT Adapter, D3DDEVTYPE DeviceT
 
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDepthStencilMatch);
     c.send_many(Adapter, DeviceType, AdapterFormat, RenderTargetFormat, DepthStencilFormat);
   }
@@ -342,6 +357,7 @@ HRESULT Direct3D9Ex_LSS::CheckDeviceFormatConversion(UINT Adapter, D3DDEVTYPE De
 
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDeviceFormatConversion);
     c.send_many(Adapter, DeviceType, SourceFormat, TargetFormat);
   }
@@ -370,6 +386,7 @@ HRESULT Direct3D9Ex_LSS::GetDeviceCaps(UINT Adapter, D3DDEVTYPE DeviceType, D3DC
 
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetDeviceCaps);
     c.send_many(Adapter, DeviceType);
   }
@@ -394,6 +411,7 @@ HMONITOR Direct3D9Ex_LSS::GetAdapterMonitor(UINT Adapter) {
 
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterMonitor);
     c.send_data(Adapter);
   }
@@ -430,6 +448,7 @@ UINT Direct3D9Ex_LSS::GetAdapterModeCountEx(UINT Adapter, CONST D3DDISPLAYMODEFI
   UINT cnt = 0;
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterModeCountEx, getId());
     c.send_data(Adapter);
     c.send_data(sizeof(D3DDISPLAYMODEFILTER), pFilter);
@@ -455,6 +474,7 @@ HRESULT Direct3D9Ex_LSS::EnumAdapterModesEx(UINT Adapter, CONST D3DDISPLAYMODEFI
 
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_EnumAdapterModesEx);
     c.send_data(Adapter);
     c.send_data(Mode);
@@ -488,6 +508,7 @@ HRESULT Direct3D9Ex_LSS::GetAdapterDisplayModeEx(UINT Adapter, D3DDISPLAYMODEEX*
 
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterDisplayModeEx);
     c.send_data(Adapter);
     c.send_data(sizeof(D3DDISPLAYMODEEX), pMode);
@@ -540,6 +561,7 @@ HRESULT Direct3D9Ex_LSS::GetAdapterLUID(UINT Adapter, LUID* pLUID) {
   }
   // Send command to server and wait for response
   {
+    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterLUID);
     c.send_data(Adapter);
   }

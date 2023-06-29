@@ -127,12 +127,14 @@ public:
 
     if (m_mipFilter != FilterType) {
       m_mipFilter = FilterType;
+      UID currentUID = 0;
       {
         BRIDGE_PARENT_DEVICE_LOCKGUARD();
         ClientMessage c(Commands::IDirect3DBaseTexture9_SetAutoGenFilterType, getId());
+        currentUID = c.get_uid();
         c.send_data(FilterType);
       }
-      WAIT_FOR_OPTIONAL_SERVER_RESPONSE("SetAutoGenFilterType()", D3DERR_INVALIDCALL);
+      WAIT_FOR_OPTIONAL_SERVER_RESPONSE("SetAutoGenFilterType()", D3DERR_INVALIDCALL, currentUID);
     }
 
     return S_OK;

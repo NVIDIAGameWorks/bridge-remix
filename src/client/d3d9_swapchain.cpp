@@ -112,14 +112,15 @@ HRESULT Direct3DSwapChain9_LSS::GetFrontBufferData(IDirect3DSurface9* pDestSurfa
   const auto pLssDestinationSurface = bridge_cast<Direct3DSurface9_LSS*>(pDestSurface);
   const auto pIDestinationSurface = pLssDestinationSurface->D3D<IDirect3DSurface9>();
 
-  BRIDGE_PARENT_DEVICE_LOCKGUARD();
-
+  UID currentUID = 0;
   {
+    BRIDGE_PARENT_DEVICE_LOCKGUARD();
     ClientMessage c(Commands::IDirect3DSwapChain9_GetFrontBufferData, getId());
+    currentUID = c.get_uid();
     c.send_data((uint32_t) pIDestinationSurface);
   }
 
-  return copyServerSurfaceRawData(pLssDestinationSurface);
+  return copyServerSurfaceRawData(pLssDestinationSurface, currentUID);
 }
 
 HRESULT Direct3DSwapChain9_LSS::GetBackBuffer(UINT iBackBuffer, D3DBACKBUFFER_TYPE Type,
@@ -131,6 +132,7 @@ HRESULT Direct3DSwapChain9_LSS::GetBackBuffer(UINT iBackBuffer, D3DBACKBUFFER_TY
     return D3DERR_INVALIDCALL;
   }
 
+  UID currentUID = 0;
   {
     BRIDGE_PARENT_DEVICE_LOCKGUARD();
     if (auto surface = getChild(iBackBuffer)) {
@@ -158,13 +160,14 @@ HRESULT Direct3DSwapChain9_LSS::GetBackBuffer(UINT iBackBuffer, D3DBACKBUFFER_TY
     // Add handles for backbuffer
     {
       ClientMessage c(Commands::IDirect3DSwapChain9_GetBackBuffer, getId());
+      currentUID = c.get_uid();
       c.send_data(iBackBuffer);
       c.send_data(Type);
       c.send_data(pLssSurface->getId());
     }
   }
 
-  WAIT_FOR_OPTIONAL_SERVER_RESPONSE("GetBackBuffer()", D3DERR_INVALIDCALL);
+  WAIT_FOR_OPTIONAL_SERVER_RESPONSE("GetBackBuffer()", D3DERR_INVALIDCALL, currentUID);
 }
 
 HRESULT Direct3DSwapChain9_LSS::GetRasterStatus(D3DRASTER_STATUS* pRasterStatus) {

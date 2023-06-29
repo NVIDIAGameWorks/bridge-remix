@@ -29,7 +29,7 @@
 
 using namespace bridge_util;
 
-static HRESULT copyServerSurfaceRawData(Direct3DSurface9_LSS* const pLssSurface) {
+static HRESULT copyServerSurfaceRawData(Direct3DSurface9_LSS* const pLssSurface, UID uid) {
   // Obtaining raw surface data buffer from server
   const uint32_t timeoutMs = GlobalOptions::getAckTimeout();
   if (Result::Success != DeviceBridge::waitForCommandAndDiscard(Commands::Bridge_Response, timeoutMs)) {

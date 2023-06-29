@@ -37,20 +37,27 @@ extern bool gbBridgeRunning;
 #define BRIDGE_COMMAND_LOCKGUARD(currentMutex) \
    std::scoped_lock lockObj(currentMutex); \
 
-#define WAIT_FOR_SERVER_RESPONSE(func, value) \
+#define WAIT_FOR_SERVER_RESPONSE(func, value, uidVal) \
   { \
     const uint32_t timeoutMs = GlobalOptions::getAckTimeout(); \
-    if (Result::Success != DeviceBridge::waitForCommandAndDiscard(Commands::Bridge_Response, timeoutMs)) { \
+    if (Result::Success != DeviceBridge::waitForCommand(Commands::Bridge_Response, timeoutMs, nullptr, true, uidVal)) { \
       Logger::err(func " failed with: no response from server."); \
       return value; \
     } \
   }
 
-#define WAIT_FOR_OPTIONAL_SERVER_RESPONSE(func, value) \
+#define POP_BRIDGE_COMMAND_QUEUE() \
+  { \
+    DeviceBridge::pop_front(); \
+  }
+
+#define WAIT_FOR_OPTIONAL_SERVER_RESPONSE(func, value, uidVal) \
   { \
     if (GlobalOptions::getSendAllServerResponses()) { \
-      WAIT_FOR_SERVER_RESPONSE(func, value) \
-      return (HRESULT) DeviceBridge::get_data(); \
+      WAIT_FOR_SERVER_RESPONSE(func, value, uidVal) \
+      HRESULT res = (HRESULT) DeviceBridge::get_data(); \
+      DeviceBridge::pop_front(); \
+      return  res; \
     } else { \
       return D3D_OK; \
     } \
@@ -187,13 +194,13 @@ public:
   // into an unrecoverable state otherwise.
   static bridge_util::Result waitForCommand(const Commands::D3D9Command& command = Commands::Bridge_Any,
                                             DWORD overrideTimeoutMS = 0,
-                                            std::atomic<bool>* const pbEarlyOutSignal = nullptr);
+                                            std::atomic<bool>* const pbEarlyOutSignal = nullptr, bool verifyUID = false, UID uidToVerify=0);
   // Waits for a command to appear in the command queue. Upon success the command will be removed from the queue
   // and discarded.
   static bridge_util::Result waitForCommandAndDiscard(const Commands::D3D9Command& command = Commands::Bridge_Any,
                                                       DWORD overrideTimeoutMS = 0,
-                                                      std::atomic<bool>* const pbEarlyOutSignal = nullptr) {
-    auto result = waitForCommand(command, overrideTimeoutMS, pbEarlyOutSignal);
+                                                      std::atomic<bool>* const pbEarlyOutSignal = nullptr, bool verifyUID = false, UID uidToVerify = 0) {
+    auto result = waitForCommand(command, overrideTimeoutMS, pbEarlyOutSignal, verifyUID, uidToVerify);
     if (bridge_util::Result::Success == result) {
       pop_front();
     }
@@ -278,6 +285,10 @@ public:
       return s_cmdCounter;
     }
 
+    static inline size_t get_uid() {
+      return s_cmdUID;
+    }
+
     static inline void reset_counter() {
       s_cmdCounter = 0;
     }
@@ -296,6 +307,8 @@ private:
   static inline ReaderChannel* s_pReaderChannel = nullptr;
   static inline int32_t        s_curBatchStartPos = -1;
   static inline size_t         s_cmdCounter = 0;
+  // UIDs are assigned to commands to tag the responses from server to allow misorder responses to be handled correctly 
+  static inline UID s_cmdUID = 0;
 #if defined(REMIX_BRIDGE_CLIENT)
   static constexpr char kWriterChannelName[] = "Client2Server";
   static constexpr char kReaderChannelName[] = "Server2Client";

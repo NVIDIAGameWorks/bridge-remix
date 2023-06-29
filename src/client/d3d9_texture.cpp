@@ -186,12 +186,14 @@ HRESULT Direct3DTexture9_LSS::UnlockRect(UINT Level) {
 HRESULT Direct3DTexture9_LSS::AddDirtyRect(CONST RECT* pDirtyRect) {
   LogFunctionCall();
   
+  UID currentUID = 0;
   {
     BRIDGE_PARENT_DEVICE_LOCKGUARD();
     {
       ClientMessage c(Commands::IDirect3DTexture9_AddDirtyRect, getId());
+      currentUID = c.get_uid();
       c.send_data(sizeof(RECT), (void*) pDirtyRect);
     }
   }
-  WAIT_FOR_OPTIONAL_SERVER_RESPONSE("AddDirtyRect()", D3DERR_INVALIDCALL);
+  WAIT_FOR_OPTIONAL_SERVER_RESPONSE("AddDirtyRect()", D3DERR_INVALIDCALL, currentUID);
 }

@@ -83,6 +83,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
   while (RESULT_SUCCESS(ModuleBridge::waitForCommand(
     Commands::Bridge_Any, 0, pbSignalEnd))) {
     const Header rpcHeader = ModuleBridge::pop_front();
+    PULL_U(currentUID);
     // The mother of all switch statements - every call in the D3D9 interface is mapped here...
     switch (rpcHeader.command) {
       /*
@@ -106,7 +107,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
       {
         const auto cnt = gpD3D->GetAdapterCount();
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(cnt);
         }
         break;
@@ -118,7 +119,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         D3DADAPTER_IDENTIFIER9 pIdentifier;
         auto hresult = gpD3D->GetAdapterIdentifier(IN Adapter, IN Flags, OUT & pIdentifier);
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(hresult);
           if (SUCCEEDED(hresult)) {
             c.send_data(sizeof(D3DADAPTER_IDENTIFIER9), &pIdentifier);
@@ -132,7 +133,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         PULL(D3DFORMAT, Format);
         const auto cnt = gpD3D->GetAdapterModeCount(IN Adapter, IN Format);
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(cnt);
         }
         break;
@@ -146,7 +147,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         const auto hresult = gpD3D->EnumAdapterModes(IN Adapter, IN Format, IN Mode, OUT & pMode);
         BRIDGE_ASSERT_LOG(SUCCEEDED(hresult), "Issue checking Adapter compatibility with required format");
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(hresult);
           if (SUCCEEDED(hresult)) {
             c.send_data(sizeof(D3DDISPLAYMODE), &pMode);
@@ -161,7 +162,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         const auto hresult = gpD3D->GetAdapterDisplayMode(IN Adapter, OUT & pMode);
         BRIDGE_ASSERT_LOG(SUCCEEDED(hresult), "Issue retrieving Adapter display mode");
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(hresult);
           if (SUCCEEDED(hresult)) {
             c.send_data(sizeof(D3DDISPLAYMODE), &pMode);
@@ -178,7 +179,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         PULL(BOOL, bWindowed);
         const auto hresult = gpD3D->CheckDeviceType(IN Adapter, IN DevType, IN AdapterFormat, IN BackBufferFormat, IN bWindowed);
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(hresult);
         }
         break;
@@ -193,7 +194,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         PULL(D3DFORMAT, CheckFormat);
         const auto hresult = gpD3D->CheckDeviceFormat(IN Adapter, IN DeviceType, IN AdapterFormat, IN Usage, IN RType, IN CheckFormat);
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(hresult);
         }
         break;
@@ -209,7 +210,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         DWORD QualityLevels;
         const auto hresult = gpD3D->CheckDeviceMultiSampleType(IN Adapter, IN DeviceType, IN SurfaceFormat, IN Windowed, IN MultiSampleType, OUT & QualityLevels);
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(hresult);
           c.send_data(QualityLevels);
         }
@@ -224,7 +225,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         PULL(D3DFORMAT, DepthStencilFormat);
         const auto hresult = gpD3D->CheckDepthStencilMatch(IN Adapter, IN DeviceType, IN AdapterFormat, IN RenderTargetFormat, IN DepthStencilFormat);
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(hresult);
         }
         break;
@@ -237,7 +238,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         PULL(D3DFORMAT, TargetFormat);
         const auto hresult = gpD3D->CheckDeviceFormatConversion(IN Adapter, IN DeviceType, IN SourceFormat, IN TargetFormat);
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(hresult);
         }
         break;
@@ -252,7 +253,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         const auto hresult = gpD3D->GetDeviceCaps(IN Adapter, IN DeviceType, OUT & pCaps);
         BRIDGE_ASSERT_LOG(SUCCEEDED(hresult), "Issue retrieving D3D9 device specific information");
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(hresult);
           if (SUCCEEDED(hresult)) {
             c.send_data(sizeof(D3DCAPS9), &pCaps);
@@ -265,7 +266,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         PULL_U(Adapter);
         HMONITOR hmonitor = gpD3D->GetAdapterMonitor(IN Adapter);
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           // Truncate handle before sending back to client because it expects a 32-bit size handle
           c.send_data(TRUNCATE_HANDLE(uint32_t, hmonitor));
         }
@@ -278,7 +279,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         PULL_DATA(sizeof(D3DDISPLAYMODEFILTER), modeFilter);
         const auto cnt = ((IDirect3D9Ex*) gpD3D)->GetAdapterModeCountEx(Adapter, &modeFilter);
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(cnt);
         }
         break;
@@ -289,7 +290,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         LUID pLUID;
         HRESULT hresult = ((IDirect3D9Ex*) gpD3D)->GetAdapterLUID(Adapter, &pLUID);
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(hresult);
           if (SUCCEEDED(hresult)) {
             c.send_data(sizeof(LUID), &pLUID);
@@ -306,7 +307,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         D3DDISPLAYMODEEX pMode;
         HRESULT hresult = ((IDirect3D9Ex*) gpD3D)->EnumAdapterModesEx(Adapter, pFilter, Mode, &pMode);
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(hresult);
           if (SUCCEEDED(hresult)) {
             c.send_data(sizeof(D3DDISPLAYMODEEX), &pMode);
@@ -323,7 +324,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         PULL_DATA(sizeof(D3DDISPLAYROTATION), pRotation);
         HRESULT hresult = ((IDirect3D9Ex*) gpD3D)->GetAdapterDisplayModeEx(Adapter, pMode, pRotation);
         {
-          ModuleServerCommand c(Commands::Bridge_Response);
+          ModuleServerCommand c(Commands::Bridge_Response, currentUID);
           c.send_data(hresult);
           if (SUCCEEDED(hresult)) {
             c.send_data(sizeof(D3DDISPLAYMODEEX), pMode);
@@ -360,7 +361,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
       // Send response back to the client
       Logger::debug("Sending CreateDevice ack response back to client.");
       {
-        ModuleServerCommand c(Commands::Bridge_Response);
+        ModuleServerCommand c(Commands::Bridge_Response, currentUID);
         c.send_data(hresult);
       }
       break;
@@ -391,7 +392,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
       // Send response back to the client
       Logger::debug("Sending CreateDevice ack response back to client.");
       {
-        ModuleServerCommand c(Commands::Bridge_Response);
+        ModuleServerCommand c(Commands::Bridge_Response, currentUID);
         c.send_data(hresult);
       }
       break;

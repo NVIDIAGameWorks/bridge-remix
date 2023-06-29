@@ -48,9 +48,10 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
 
   const auto hWindow = createParams.hFocusWindow ? createParams.hFocusWindow : presParams.hDeviceWindow;
   setWinProc(hWindow);
-
+  UID currentUID = 0;
   {
     ModuleClientCommand c(Commands::IDirect3D9Ex_CreateDevice, getId());
+    currentUID = c.get_uid();
     c.send_many(           createParams.AdapterOrdinal,
                            createParams.DeviceType,
                 (uint32_t) createParams.hFocusWindow,
@@ -64,7 +65,7 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   Logger::debug("...server-side D3D9 device creation command sent...");
 
   Logger::debug("...waiting for create device ack response from server...");
-  if (Result::Success != ModuleBridge::waitForCommand(Commands::Bridge_Response)) {
+  if (Result::Success != ModuleBridge::waitForCommand(Commands::Bridge_Response, 0, nullptr, true, currentUID)) {
     Logger::err("...server-side D3D9 device creation failed with: no response from server.");
     removeWinProc(hWindow);
     hresultOut = D3DERR_DEVICELOST;

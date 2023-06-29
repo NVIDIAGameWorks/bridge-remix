@@ -153,7 +153,7 @@ DECL_BRIDGE_FUNC(bridge_util::Result, ensureQueueEmpty) {
 
 DECL_BRIDGE_FUNC(bridge_util::Result, waitForCommand, const Commands::D3D9Command& command,
                                                       DWORD overrideTimeoutMS,
-                                                      std::atomic<bool>* const pbEarlyOutSignal) {
+                                                      std::atomic<bool>* const pbEarlyOutSignal, bool verifyUID, UID uidToVerify) {
   ZoneScoped;
   DWORD peekTimeoutMS = overrideTimeoutMS > 0 ? overrideTimeoutMS : GlobalOptions::getCommandTimeout();
   uint32_t maxAttempts = GlobalOptions::getCommandRetries();
@@ -173,7 +173,13 @@ DECL_BRIDGE_FUNC(bridge_util::Result, waitForCommand, const Commands::D3D9Comman
 
     case Result::Success:
     {
-      if ((command == Commands::Bridge_Any) || (header.command == command)) {
+      bool uidVerified = true;
+      if (verifyUID) {
+        if (header.pHandle != uidToVerify) {
+          uidVerified = false;
+        }
+      }
+      if ((command == Commands::Bridge_Any) || (header.command == command) && uidVerified) {
 #ifdef ENABLE_WAIT_FOR_COMMAND_TRACE
         if (command != Commands::Bridge_Any) {
           Logger::trace(format_string("...success, command %s received!", Commands::toString(command).c_str()));
@@ -181,7 +187,8 @@ DECL_BRIDGE_FUNC(bridge_util::Result, waitForCommand, const Commands::D3D9Comman
 #endif
         return Result::Success;
       } else {
-        Logger::debug(format_string("Wrong command detected: %s. Expected: %s.", Commands::toString(header.command).c_str(), Commands::toString(command).c_str()));
+        Logger::debug(format_string("Different instance of a command detected: %s. Expected: %s with UID: %s. ", Commands::toString(header.command).c_str(), 
+                                    Commands::toString(command).c_str(), std::to_string(uidToVerify)));
         // If we see the incorrect command, we want to give the other side of
         // the bridge ample time to make an attempt to process it first
         Sleep(peekTimeoutMS);
@@ -261,6 +268,17 @@ DECL_COMMAND_FUNC(,Command,const Commands::D3D9Command command,
   s_pWriterChannel->pbCmdInProgress->store(true);
   s_curBatchStartPos = (int32_t) s_pWriterChannel->data->get_pos();
   s_cmdCounter++;
+  if (gbBridgeRunning) {
+    // Send command id as part of data queue for everycommand from client to server
+#ifdef REMIX_BRIDGE_CLIENT
+      syncDataQueue(1, false);
+      const auto result = s_pWriterChannel->data->push((UINT)s_cmdUID);
+      if (RESULT_FAILURE(result)) {
+        // For now just log when things go wrong, but could use some robustness improvements
+        Logger::err("DataQueue send_data: Failed to send data!");
+      }
+#endif
+  }
 }
 
 DECL_COMMAND_FUNC(,~Command) {
@@ -297,6 +315,9 @@ DECL_COMMAND_FUNC(,~Command) {
       }
   }
   s_pWriterChannel->pbCmdInProgress->store(false);
+#ifdef REMIX_BRIDGE_CLIENT
+  ++s_cmdUID;
+#endif
 }
 
 template class Bridge<BridgeId::Module>;

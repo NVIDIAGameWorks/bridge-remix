@@ -52,11 +52,21 @@ public:
       };
       auto* const pLssBackBuffer = trackWrapper(new Direct3DSurface9_LSS(pDevice, this, backBufferDesc));
       setChild(childIdx, pLssBackBuffer);
+      UID currentUID = 0;
       {
         ClientMessage c(Commands::IDirect3DSwapChain9_GetBackBuffer, getId());
+        currentUID = c.get_uid();
         c.send_data(childIdx);
         c.send_data(D3DBACKBUFFER_TYPE_MONO);
         c.send_data(pLssBackBuffer->getId());
+      }
+      if (GlobalOptions::getSendAllServerResponses()) {
+        const uint32_t timeoutMs = GlobalOptions::getAckTimeout();
+        if (Result::Success != DeviceBridge::waitForCommand(Commands::Bridge_Response, timeoutMs, nullptr, true, currentUID)) {
+          Logger::err("Direct3DSwapChain9_LSS() failed with : no response from server.");
+        }
+        HRESULT res = (HRESULT) DeviceBridge::get_data();
+        DeviceBridge::pop_front();
       }
     }
   }

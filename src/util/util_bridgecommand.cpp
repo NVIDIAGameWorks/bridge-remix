@@ -188,7 +188,7 @@ DECL_BRIDGE_FUNC(bridge_util::Result, waitForCommand, const Commands::D3D9Comman
         return Result::Success;
       } else {
         Logger::debug(format_string("Different instance of a command detected: %s. Expected: %s with UID: %s. ", Commands::toString(header.command).c_str(), 
-                                    Commands::toString(command).c_str(), std::to_string(uidToVerify)));
+                                    Commands::toString(command).c_str(), std::to_string(uidToVerify).c_str()));
         // If we see the incorrect command, we want to give the other side of
         // the bridge ample time to make an attempt to process it first
         Sleep(peekTimeoutMS);

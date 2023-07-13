@@ -279,6 +279,11 @@ private:
     // useful for debugging to ensure the server side D3D is in the same state.
     sendReadOnlyCalls = bridge_util::Config::getOption<bool>("sendReadOnlyCalls", false);
 
+    // Certain API calls from the client do not wait for a response from the server. Setting
+    // sendAllServerResponses to true forces the server to respond and the clientside calls 
+    // to wait for a response.
+    sendAllServerResponses = bridge_util::Config::getOption<bool>("sendAllServerResponses", false);
+
     // In most cases it is only useful to log those D3D calls that have not been
     // implemented on the server side yet, but by toggling this you will get the
     // first usage of all D3D calls logged, including the implemented ones.

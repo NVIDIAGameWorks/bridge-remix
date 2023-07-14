@@ -418,6 +418,7 @@ template<bool EnableSync>
 HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Reset(D3DPRESENT_PARAMETERS* pPresentationParameters) {
   ZoneScoped;
   LogFunctionCall();
+  HRESULT res = S_OK;
   {
     BRIDGE_DEVICE_LOCKGUARD();
     // Clear all device state and release implicit/internal objects
@@ -429,14 +430,27 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Reset(D3DPRESENT_PARAMETERS* pPresent
     // Add a hook into this window if we don't already have it.
     setWinProc(presParam.hDeviceWindow);
     // Tell Server to do the Reset
+    size_t currentUID = 0;
     {
       ClientMessage c(Commands::IDirect3DDevice9Ex_Reset, getId());
+      currentUID = c.get_uid();
       c.send_data(sizeof(D3DPRESENT_PARAMETERS), &presParam);
     }
+
+    // Perform an WAIT_FOR_OPTIONAL_SERVER_RESPONSE but don't return since we still have work to do.
+    if (GlobalOptions::getSendAllServerResponses()) {
+      const uint32_t timeoutMs = GlobalOptions::getAckTimeout();
+      if (Result::Success != DeviceBridge::waitForCommand(Commands::Bridge_Response, timeoutMs, nullptr, true, currentUID)) {
+        Logger::err("Direct3DDevice9Ex_LSS::Reset() failed with : no response from server.");
+      }
+      res = (HRESULT) DeviceBridge::get_data();
+      DeviceBridge::pop_front();
+      }
+
     // Reset swapchain and link server backbuffer/depth buffer after the server reset its swapchain, or we will link to the old backbuffer/depth resources
     initImplicitObjects(presParam);
   }
-  return S_OK;
+  return res;
 }
 
 HRESULT syncOnPresent() {

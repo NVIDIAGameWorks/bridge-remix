@@ -9,6 +9,8 @@ on:
 jobs:
   build-windows:
     runs-on: windows-2022
+    permissions:
+      contents: write-all
 
     strategy:
       matrix:

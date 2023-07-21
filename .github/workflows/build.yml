@@ -56,7 +56,7 @@ jobs:
           _output\.trex\*.exe
           _output\.trex\*.pdb
       
-      name: Create clean directory for CI/CD release 
+    - name: Create clean directory for CI/CD release 
       shell: pwsh
       run: |
         New-Item ".\_upload" -Type Directory

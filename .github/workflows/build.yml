@@ -64,7 +64,7 @@ jobs:
         Get-ChildItem -Path "..\_output" -Recurse -Filter *.pdb | Copy-Item
         Get-ChildItem -Path "..\_output" -Recurse -Filter *.dll | Copy-Item
         Get-ChildItem -Path "..\_output" -Recurse -Filter *.exe | Copy-Item
-        New Item ".\.trex" -Type Directory
+        New-Item ".\.trex" -Type Directory
         cd ".\.trex"
         Get-ChildItem -Path "..\NvRemixBridge.*" | Move-Item
         cd "..\.."

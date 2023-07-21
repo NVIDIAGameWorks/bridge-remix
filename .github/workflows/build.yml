@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, automatic-releases ]
   pull_request:
     branches: [ main ]
 
@@ -55,3 +55,36 @@ jobs:
           _output\.trex\*.dll
           _output\.trex\*.exe
           _output\.trex\*.pdb
+      
+      name: Create clean directory for CI/CD release 
+      shell: pwsh
+      run: |
+        New-Item ".\_upload" -Type Directory
+        cd ".\_upload"
+        Get-ChildItem -Path "..\_output" -Recurse -Filter *.pdb | Copy-Item
+        Get-ChildItem -Path "..\_output" -Recurse -Filter *.dll | Copy-Item
+        Get-ChildItem -Path "..\_output" -Recurse -Filter *.exe | Copy-Item
+        New Item ".\.trex" -Type Directory
+        cd ".\.trex"
+        Get-ChildItem -Path "..\NvRemixBridge.*" | Move-Item
+        cd "..\.."
+        Compress-Archive -Path ".\_upload\*" -DestinationPath "bridge-remix-${{env.GITHUB_SHA_SHORT}}-${{github.run_number}}-${{matrix.build-flavour}}.zip"
+
+    - name: "Prune automatic CI/CD releases to latest"
+      uses: dev-drprasad/delete-older-releases@v0.2.1
+      with:
+        keep_latest: 3
+        delete_tag_pattern: automatic # defaults to ""
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: "Create new CI/CD release"
+      uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "automatic-${{matrix.build-flavour}}"
+        prerelease: true
+        title: "bridge-remix-${{env.GITHUB_SHA_SHORT}}-${{github.run_number}}-${{matrix.build-flavour}}"
+        files: | 
+          *.zip
+          _release/*.txt

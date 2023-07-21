@@ -22,16 +22,18 @@
 
 project(
   'bridge', ['c', 'cpp'],
+  version : 'remix-0.2.0',
   meson_version : '>= 0.58',
   default_options : ['werror=true', 'b_vscrt=static_from_buildtype', 'cpp_std=vc++17']
 )
 
+python_interpreter = find_program('python3', 'python')
 
+global_src_root_norm = meson.global_source_root().replace('\\', '/')
 output_dir = meson.global_source_root() + '/_output/'
 
 cpu_family = target_machine.cpu_family()
 build_os = build_machine.system()
-
  
 # Get script paths
 if build_os == 'windows'
@@ -164,9 +166,68 @@ else
   output    : [ '@BASENAME@' + res_ext ],
   arguments : [ '-i', '@INPUT@', '-o', '@OUTPUT@' ])
 endif
+  
+message('##############')
+message('# Versioning #')
+message('##############')
+
+full_version = meson.project_version()
+
+git_rev_parse_out = run_command('git',['rev-parse','--verify','--short=8', 'HEAD'])
+git_hash = ''
+if git_rev_parse_out.returncode() != 0
+  error('Failed to get current git hash')
+else
+  git_hash = git_rev_parse_out.stdout().replace('\n','')
+  message('Current git hash: ' + git_hash)
+endif
+
+found_tag = ''
+ci_commit_tag = ''
+get_env_out = run_command(python_interpreter.full_path(),[global_src_root_norm + './scripts-common/get_env.py', 'CI_COMMIT_TAG'])
+if get_env_out.returncode() != 0
+  error('get_env.py failed, which is unexpected')
+else
+  ci_commit_tag = get_env_out.stdout().replace('\n','')
+endif
+b_found_ci_commit_tag = (ci_commit_tag != '')
+
+if b_found_ci_commit_tag
+  message('Found tag in CI_COMMIT_TAG envvar: ' + ci_commit_tag)
+  found_tag = ci_commit_tag
+else
+  git_describe_tag = ''
+  git_describe_out = run_command('git',['describe','--always','--exact-match', git_hash])
+  if git_describe_out.returncode() == 0
+    git_describe_tag = git_describe_out.stdout().replace('\n','')
+    message('Found tag via git describe: ' + git_describe_tag)
+  endif
+  found_tag = git_describe_tag
+endif
+
+b_found_tag = found_tag != ''
+b_found_tag_matches = false
+if b_found_tag
+  b_found_tag_matches = found_tag == meson.project_version()
+endif
+
+if b_found_tag
+  if not b_found_tag_matches
+    warning('Tag does not match current version: ' + meson.project_version() + '. Please reconcile tag with version in meson.build.')
+  else
+    message('Found tag matches current version: ' + meson.project_version())
+    message('This is a release version.')
+  endif
+else
+  message('No tag found at current commit.')
+  message('This is NOT a release version')
+  full_version += '+' + git_hash
+endif
+
+message('Full version: ' + full_version)
 
 bridge_version = vcs_tag(
-  command: ['git', 'describe', '--dirty=+'],
+  command: [python_interpreter.full_path(), global_src_root_norm + './scripts-common/echo.py', full_version],
   input:  'version.h.in',
   output: 'version.h')
 

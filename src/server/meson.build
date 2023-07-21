@@ -33,9 +33,9 @@ server_header = files([
 thread_dep = dependency('threads')
 
 server_tag = vcs_tag(
-  command: ['git', 'describe', '--dirty=+'],
-  input:    'version.rc.in', 
-  output:   'version.rc')
+  command: [python_interpreter.full_path(), global_src_root_norm + './scripts-common/echo.py', full_version],
+  input:   'version.rc.in',
+  output:  'version.rc')
 
 server_version = wrc_generator.process(server_tag)
 

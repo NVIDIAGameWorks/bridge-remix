@@ -9,7 +9,8 @@ on:
 jobs:
   build-windows:
     runs-on: windows-2022
-    permissions: write-all
+    permissions: 
+      contents: write
 
     strategy:
       matrix:
@@ -86,7 +87,7 @@ jobs:
         tag_name: "automatic-${{matrix.build-flavour}}"
         prerelease: true
         generate_release_notes: true
-        title: "bridge-remix-${{env.GITHUB_SHA_SHORT}}-${{github.run_number}}-${{matrix.build-flavour}}"
+        name: "bridge-remix-${{env.GITHUB_SHA_SHORT}}-${{github.run_number}}-${{matrix.build-flavour}}"
         files: | 
           *.zip
           _upload/*.txt

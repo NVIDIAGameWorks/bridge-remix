@@ -70,7 +70,7 @@ jobs:
         cd ".\.trex"
         Get-ChildItem -Path "..\NvRemixBridge.*" | Move-Item
         cd "..\.."
-        Compress-Archive -Path ".\_upload\*" -DestinationPath "bridge-remix-${{env.GITHUB_SHA_SHORT}}-${{github.run_number}}-${{matrix.build-flavour}}.zip"
+        Compress-Archive -Path ".\_upload\*" -DestinationPath "bridge-remix-${{github.run_number}}-${{env.GITHUB_SHA_SHORT}}-${{matrix.build-flavour}}.zip"
 
     - name: "Prune automatic releases to latest"
       uses: dev-drprasad/delete-older-releases@v0.2.1

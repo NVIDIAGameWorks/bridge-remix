@@ -9,6 +9,8 @@ on:
 jobs:
   build-windows:
     runs-on: windows-2022
+    permissions: 
+      contents: write
 
     strategy:
       matrix:
@@ -55,3 +57,37 @@ jobs:
           _output\.trex\*.dll
           _output\.trex\*.exe
           _output\.trex\*.pdb
+      
+    - name: Create clean directory for CI/CD release 
+      shell: pwsh
+      run: |
+        New-Item ".\_upload" -Type Directory
+        cd ".\_upload"
+        Get-ChildItem -Path "..\_output" -Recurse -Filter *.pdb | Copy-Item
+        Get-ChildItem -Path "..\_output" -Recurse -Filter *.dll | Copy-Item
+        Get-ChildItem -Path "..\_output" -Recurse -Filter *.exe | Copy-Item
+        New-Item ".\.trex" -Type Directory
+        cd ".\.trex"
+        Get-ChildItem -Path "..\NvRemixBridge.*" | Move-Item
+        cd "..\.."
+        Compress-Archive -Path ".\_upload\*" -DestinationPath "bridge-remix-${{github.run_number}}-${{env.GITHUB_SHA_SHORT}}-${{matrix.build-flavour}}.zip"
+
+    - name: "Prune automatic releases to latest"
+      uses: dev-drprasad/delete-older-releases@v0.2.1
+      with:
+        keep_latest: 3
+        delete_tag_pattern: automatic # defaults to ""
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: "Create new CI/CD release"
+      uses: softprops/action-gh-release@v1
+      with:
+        token: "${{ secrets.GITHUB_TOKEN }}"
+        tag_name: "automatic-${{matrix.build-flavour}}"
+        prerelease: true
+        generate_release_notes: true
+        name: "bridge-remix-automatic-${{matrix.build-flavour}}"
+        files: | 
+          *.zip
+          _upload/*.txt

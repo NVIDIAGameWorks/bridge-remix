@@ -21,6 +21,7 @@
  */
 #include "pch.h"
 #include "d3d9_query.h"
+#include "util_devicecommand.h"
 
 HRESULT Direct3DQuery9_LSS::QueryInterface(REFIID riid, LPVOID* ppvObj) {
   LogFunctionCall();
@@ -51,7 +52,11 @@ ULONG Direct3DQuery9_LSS::Release() {
 }
 
 void Direct3DQuery9_LSS::onDestroy() {
-  // TODO: implement me.
+  LogFunctionCall();
+  BRIDGE_PARENT_DEVICE_LOCKGUARD();
+  {
+    ClientMessage { Commands::IDirect3DQuery9_Destroy, getId() };
+  }
 }
 
 HRESULT Direct3DQuery9_LSS::GetDevice(IDirect3DDevice9** ppDevice) {
@@ -88,15 +93,46 @@ DWORD Direct3DQuery9_LSS::GetDataSize() {
 }
 
 HRESULT Direct3DQuery9_LSS::Issue(DWORD dwIssueFlags) {
-  LogMissingFunctionCall();
-  // TODO: Implement queries across the bridge.
-  // For now return success. Some apps will spin wait on these
-    return S_OK;
+  LogFunctionCall();
+  
+  UID currentUID = 0;
+  {
+    BRIDGE_PARENT_DEVICE_LOCKGUARD();
+    {
+      ClientMessage c(Commands::IDirect3DQuery9_Issue, getId());
+      currentUID = c.get_uid();
+      c.send_data(dwIssueFlags);
+    }
+  }
+
+  WAIT_FOR_OPTIONAL_SERVER_RESPONSE("Direct3DQuery9_LSS::Issue()", D3DERR_INVALIDCALL, currentUID);
+
+  return S_OK;
 }
 
 HRESULT Direct3DQuery9_LSS::GetData(void* pData, DWORD dwSize, DWORD dwGetDataFlags) {
-  LogMissingFunctionCall();
-  // TODO: Implement queries across the bridge.
-  // For now return success. Some apps will spin wait on these
-  return S_OK;
+  LogFunctionCall();
+
+  UID currentUID = 0;
+  {
+    BRIDGE_PARENT_DEVICE_LOCKGUARD();
+    {
+      ClientMessage c(Commands::IDirect3DQuery9_GetData, getId());
+      currentUID = c.get_uid();
+      c.send_data(dwSize);
+      c.send_data(dwGetDataFlags);
+    }
+  }
+
+  WAIT_FOR_SERVER_RESPONSE("Direct3DQuery9_LSS::GetData()", D3DERR_INVALIDCALL, currentUID);
+  HRESULT hresult = DeviceBridge::get_data();
+  if (SUCCEEDED(hresult) && dwSize > 0 && pData != NULL) {
+    void* pDataReturned = NULL;
+    DeviceBridge::get_data(&pDataReturned);
+    memcpy(pData, pDataReturned, dwSize);
+  }
+
+  DeviceBridge::pop_front();
+
+  return hresult;
 }

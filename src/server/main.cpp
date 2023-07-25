@@ -116,6 +116,7 @@ std::unordered_map<uint32_t, IDirect3DStateBlock9*> gpD3DStateBlocks;
 std::unordered_map<uint32_t, IDirect3DVertexShader9*> gpD3DVertexShaders;
 std::unordered_map<uint32_t, IDirect3DPixelShader9*> gpD3DPixelShaders;
 std::unordered_map<uint32_t, IDirect3DSwapChain9*> gpD3DSwapChains;
+std::unordered_map<uint32_t, IDirect3DQuery9*> gpD3DQuery;
 
 // Global state
 bool gbBridgeRunning = true;
@@ -1545,9 +1546,11 @@ void ProcessDeviceCommandQueue() {
         GET_RES(pD3DDevice, gpD3DDevices);
         PULL(D3DQUERYTYPE, Type);
         PULL_HND(pHandle);
-        // Do nothing 
-
-        // TODO: Implement query 'getters', until then, Queries are useless here.
+        IDirect3DQuery9* ppQuery;
+        const auto hresult = pD3DDevice->CreateQuery(IN Type, OUT & ppQuery);
+        if (SUCCEEDED(hresult)) {
+          gpD3DQuery[pHandle] = ppQuery;
+        }
         break;
       }
       /*
@@ -2545,7 +2548,13 @@ void ProcessDeviceCommandQueue() {
       case IDirect3DQuery9_AddRef:
         break;
       case IDirect3DQuery9_Destroy:
+      {
+        GET_HND(pHandle);
+        const auto& pQuery = (IDirect3DQuery9*) gpD3DQuery[pHandle];
+        safeDestroy(pQuery, pHandle);
+        gpD3DQuery.erase(pHandle);
         break;
+      }
       case IDirect3DQuery9_GetDevice:
         break;
       case IDirect3DQuery9_GetType:
@@ -2553,9 +2562,40 @@ void ProcessDeviceCommandQueue() {
       case IDirect3DQuery9_GetDataSize:
         break;
       case IDirect3DQuery9_Issue:
+      {
+        GET_HND(pHandle);
+        PULL(DWORD, dwIssueFlags);
+        const auto &pQuery = gpD3DQuery[pHandle];
+        const auto hresult = pQuery->Issue(dwIssueFlags);
+        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
         break;
+      }
       case IDirect3DQuery9_GetData:
+      {
+        GET_HND(pHandle);
+        PULL(DWORD, dwSize);
+        PULL(DWORD, dwGetDataFlags);
+        const auto& pQuery = gpD3DQuery[pHandle];
+        void* pData = NULL;
+        if (dwSize > 0) {
+          pData = new char[dwSize];
+        }
+        const auto hresult = pQuery->GetData(pData, dwSize, dwGetDataFlags);
+
+        ServerMessage c(Commands::Bridge_Response, currentUID);
+        c.send_data(hresult);
+        if (SUCCEEDED(hresult) && dwSize > 0) {
+          if (auto* blobPacketPtr = c.begin_data_blob(dwSize)) {
+            memcpy(blobPacketPtr, pData, dwSize);
+            c.end_data_blob();
+          }
+        }
+      
+        if (dwSize > 0) {
+          delete[]pData;
+        }
         break;
+      }
 
       /*
        * Other commands

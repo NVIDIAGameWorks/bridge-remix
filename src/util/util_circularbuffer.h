@@ -34,6 +34,7 @@ namespace bridge_util {
   public:
     using CircularQueue::push;
     using CircularQueue::pull;
+    using BaseType = T;
 
     CircularBuffer(const std::string& name, Accessor access, void* pMemory,
       const size_t memSize, const size_t queueSize):

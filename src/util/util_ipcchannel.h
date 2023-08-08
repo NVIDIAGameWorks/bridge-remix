@@ -41,29 +41,24 @@ public:
              const size_t memSize,
              const size_t cmdQueueSize,
              const size_t dataQueueSize)
-    : m_extraMemForSync(sizeof(*serverDataPos) +
-                        sizeof(*clientDataExpectedPos) +
-                        sizeof(*serverResetPosRequired))
-    , sharedMem(new bridge_util::SharedMemory(name + "Channel", memSize + m_extraMemForSync))
+    : sharedMem(new bridge_util::SharedMemory(name + "Channel", memSize + kReservedSpace))
     , m_cmdMemSize(sizeof(Header)* cmdQueueSize + CommandQueue::getExtraMemoryRequirements())
     , m_dataMemSize(memSize - m_cmdMemSize)
     , serverDataPos(static_cast<int64_t*>(sharedMem->data()))
-    , clientDataExpectedPos(static_cast<int64_t*>(serverDataPos + sizeof(*serverDataPos)))
-    , serverResetPosRequired(reinterpret_cast<bool*>(clientDataExpectedPos +
-                                                     sizeof(*clientDataExpectedPos)))
+    , clientDataExpectedPos(serverDataPos + 1)
+    , serverResetPosRequired(reinterpret_cast<bool*>(clientDataExpectedPos + 1))
     // Offsetting shared memory to account for 3 pointers used above
     , commands(new CommandQueue(name + "Command",
                                 reinterpret_cast<void*>(
                                   reinterpret_cast<uintptr_t>(sharedMem->data()) +
-                                  m_extraMemForSync),
+                                  kReservedSpace),
                                 m_cmdMemSize,
                                 cmdQueueSize))
     , data(new bridge_util::DataQueue(name + "Data",
                                       Accessor,
                                       reinterpret_cast<void*>(
                                         reinterpret_cast<uintptr_t>(sharedMem->data()) +
-                                        m_extraMemForSync +
-                                        m_cmdMemSize),
+                                        kReservedSpace + m_cmdMemSize),
                                       m_dataMemSize,
                                       dataQueueSize))
     , dataSemaphore(new bridge_util::NamedSemaphore(name + "Semaphore", 0, 1))
@@ -89,18 +84,25 @@ public:
     return data->get_pos();
   }
 
-  const size_t                       m_extraMemForSync; // Extra storage needed for data queue synchronization
+  bridge_util::DataQueue::BaseType* get_data_ptr() const {
+    return data->data();
+  }
+
   bridge_util::SharedMemory* const   sharedMem;
   const size_t                       m_cmdMemSize;
   const size_t                       m_dataMemSize;
-  int64_t* serverDataPos;
-  int64_t* clientDataExpectedPos;
-  bool* serverResetPosRequired;
+  int64_t*                           serverDataPos;
+  int64_t*                           clientDataExpectedPos;
+  bool*                              serverResetPosRequired;
   CommandQueue* const                commands;
   bridge_util::DataQueue* const      data;
   bridge_util::NamedSemaphore* const dataSemaphore;
   std::atomic<bool>* const           pbCmdInProgress;
-  mutable std::mutex m_mutex;
+  mutable std::mutex                 m_mutex;
+
+  // Extra storage needed for data queue synchronization params
+  static constexpr size_t kReservedSpace = align<size_t>(sizeof(*serverDataPos) +
+    sizeof(*clientDataExpectedPos) + sizeof(*serverResetPosRequired), 64);
 };
 using WriterChannel = IpcChannel<bridge_util::Accessor::Writer>;
 using ReaderChannel = IpcChannel<bridge_util::Accessor::Reader>;

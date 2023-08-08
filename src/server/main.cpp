@@ -2227,6 +2227,9 @@ void ProcessDeviceCommandQueue() {
       case IDirect3DVertexBuffer9_Lock:
       {
         // This is a no-op right now because we're doing all the logic on Unlock
+        GET_HND(pHandle);
+        void* data = nullptr;
+        DeviceBridge::get_data(&data);
         break;
       }
       case IDirect3DVertexBuffer9_Unlock:
@@ -2244,7 +2247,10 @@ void ProcessDeviceCommandQueue() {
 
         // Copy the data over
         void* data = nullptr;
-        if (Commands::IsDataInSharedHeap(rpcHeader.flags)) {
+        if (Commands::IsDataReserved(rpcHeader.flags)) {
+          PULL_D(DataOffset);
+          data = DeviceBridge::Bridge::getReaderChannel().get_data_ptr() + DataOffset;
+        } else if (Commands::IsDataInSharedHeap(rpcHeader.flags)) {
           PULL_U(allocId);
           data = SharedHeap::getBuf(allocId) + OffsetToLock;
         } else {
@@ -2309,6 +2315,9 @@ void ProcessDeviceCommandQueue() {
       case IDirect3DIndexBuffer9_Lock:
       {
         // This is a no-op right now because we're doing all the logic on Unlock
+        GET_HND(pHandle);
+        void* data = nullptr;
+        DeviceBridge::get_data(&data);
         break;
       }
       case IDirect3DIndexBuffer9_Unlock:
@@ -2326,7 +2335,10 @@ void ProcessDeviceCommandQueue() {
 
         // Copy the data over
         void* data = nullptr;
-        if (Commands::IsDataInSharedHeap(rpcHeader.flags)) {
+        if (Commands::IsDataReserved(rpcHeader.flags)) {
+          PULL_D(DataOffset);
+          data = DeviceBridge::Bridge::getReaderChannel().get_data_ptr() + DataOffset;
+        } else if (Commands::IsDataInSharedHeap(rpcHeader.flags)) {
           PULL_U(allocId);
           data = SharedHeap::getBuf(allocId) + OffsetToLock;
         } else {

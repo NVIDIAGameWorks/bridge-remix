@@ -144,6 +144,10 @@ namespace bridge_util {
       return batchSize;
     }
 
+    T* data() const {
+      return m_data;
+    }
+
   private:
     template<bool BatchInProgress>
     Result pushImpl(const T obj) {

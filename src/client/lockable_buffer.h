@@ -32,8 +32,12 @@
 template <typename T>
 class LockableBuffer: public Direct3DResource9_LSS<T> {
   static constexpr bool bIsVertexBuffer = std::is_same_v<IDirect3DVertexBuffer9, T>;
+  static constexpr Commands::D3D9Command LockCmd = bIsVertexBuffer ?
+    Commands::IDirect3DVertexBuffer9_Lock : Commands::IDirect3DIndexBuffer9_Lock;
   static constexpr Commands::D3D9Command UnlockCmd = bIsVertexBuffer ?
     Commands::IDirect3DVertexBuffer9_Unlock : Commands::IDirect3DIndexBuffer9_Unlock;
+  static constexpr size_t kSIMDAlign = 16;
+  static constexpr uint32_t kLockCheckValue = 0xbaadf00d;
   using DescType = std::conditional_t<bIsVertexBuffer, D3DVERTEXBUFFER_DESC, D3DINDEXBUFFER_DESC>;
 
   struct LockInfo {
@@ -41,6 +45,7 @@ class LockableBuffer: public Direct3DResource9_LSS<T> {
     UINT sizeToLock;
     void* pbData;
     DWORD flags;
+    uint32_t* checkPtr;
     SharedHeap::AllocId bufferId = SharedHeap::kInvalidId;
     SharedHeap::AllocId discardedBufferId = SharedHeap::kInvalidId;
   };
@@ -78,18 +83,17 @@ private:
 protected:
   const DescType m_desc;
   SharedHeap::AllocId m_bufferId = SharedHeap::kInvalidId;
-  bool m_sendWhole = false;
+  const bool m_sendWhole = false;
+  const bool m_optimizedLock = false;
 
   LockableBuffer(T* const pD3dBuf, BaseDirect3DDevice9Ex_LSS* const pDevice, const DescType& desc)
     : Direct3DResource9_LSS<T>(pD3dBuf, pDevice)
     , m_desc(desc)
-    , m_bUseSharedHeap(getSharedHeapPolicy(m_desc)) {
+    , m_bUseSharedHeap(getSharedHeapPolicy(m_desc))
+    , m_sendWhole((desc.Usage& D3DUSAGE_DYNAMIC) == 0 && GlobalOptions::getAlwaysCopyEntireStaticBuffer())
+    , m_optimizedLock((desc.Usage& D3DUSAGE_DYNAMIC) != 0 && ClientOptions::getOptimizedDynamicLock()) {
     if (!m_bUseSharedHeap) {
       initShadowMem();
-    }
-
-    if ((m_desc.Usage & D3DUSAGE_DYNAMIC) == 0 && GlobalOptions::getAlwaysCopyEntireStaticBuffer()) {
-      m_sendWhole = true;
     }
   }
 
@@ -111,6 +115,9 @@ protected:
     if (ppbData == nullptr) {
       return D3DERR_INVALIDCALL;
     }
+
+    uint32_t* checkPtr = nullptr;
+
     if (m_bUseSharedHeap) {
       SharedHeap::AllocId discardedBufferId = SharedHeap::kInvalidId;
       const bool bDiscard = (flags & D3DLOCK_DISCARD) != 0;
@@ -134,10 +141,30 @@ protected:
       }
       m_bufferId = nextBufId;
       *ppbData = SharedHeap::getBuf(m_bufferId) + offset;
-      m_lockInfos.push({ offset, size, nullptr, flags, m_bufferId, discardedBufferId });
+      m_lockInfos.push({ offset, size, nullptr, flags, checkPtr, m_bufferId, discardedBufferId });
     } else {
       *ppbData = m_shadow.get() + offset;
-      m_lockInfos.push({ offset, size, *ppbData, flags });
+
+      if (m_optimizedLock) {
+        const size_t dataSize = (size == 0) ? m_desc.Size : size;
+
+        // Send the buffer lock parameters and handle
+        ClientMessage c(LockCmd, getId(), 0);
+        // Reserve blob in data stream
+        uintptr_t blobAddr = reinterpret_cast<uintptr_t>(
+          c.begin_data_blob(dataSize + sizeof(kLockCheckValue) + kSIMDAlign));
+        c.end_data_blob();
+
+        // Push buffer check value in front. If front gets corrupted the entire region deemed invalid.
+        checkPtr = reinterpret_cast<uint32_t*>(blobAddr);
+        blobAddr += sizeof(kLockCheckValue);
+        *checkPtr = kLockCheckValue;
+
+        // Align data blob for SIMD ops
+        blobAddr = align<uintptr_t>(blobAddr, kSIMDAlign);
+        *ppbData = reinterpret_cast<void*>(blobAddr);
+      }
+      m_lockInfos.push({ offset, size, *ppbData, flags, checkPtr });
     }
     // Store locked buffer pointer locally so we can copy the data on unlock
     return S_OK;
@@ -163,12 +190,31 @@ protected:
     // If this is a read only access then don't bother sending
     if ((lockInfo.flags & D3DLOCK_READONLY) == 0) {
       {
+        Commands::Flags cmdFlags = 0;
+
+        if (m_bUseSharedHeap) {
+          cmdFlags = Commands::FlagBits::DataInSharedHeap;
+        } else if (m_optimizedLock) {
+          cmdFlags = Commands::FlagBits::DataIsReserved;
+
+          if (kLockCheckValue != *lockInfo.checkPtr) {
+            Logger::err("Fatal: reserved buffer region has been corrupted! "
+                        "Application will now exit.");
+            throw;
+          }
+        }
+
         // Send the buffer lock parameters and handle
-        ClientMessage c(UnlockCmd, getId(), m_bUseSharedHeap ? Commands::FlagBits::DataInSharedHeap : 0);
+        ClientMessage c(UnlockCmd, getId(), cmdFlags);
         c.send_many(offset, size, lockInfo.flags);
 
         if (m_bUseSharedHeap) {
           c.send_data(lockInfo.bufferId);
+        } else if (m_optimizedLock) {
+          // Now send data offset in the channel
+          const uint32_t dataOffset = static_cast<uint32_t*>(ptr) -
+            DeviceBridge::getWriterChannel().get_data_ptr();
+          c.send_many(dataOffset);
         } else {
           // Now send the buffer bytes
           c.send_data(size, ptr);

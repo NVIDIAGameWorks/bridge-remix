@@ -1809,8 +1809,6 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::GetTexture(DWORD Stage, IDirect3DBase
     return D3DERR_INVALIDCALL;
   }
 
-  D3DAutoPtr objectRef;
-
   const auto idx = mapSamplerStageToIdx(Stage);
   {
     BRIDGE_DEVICE_LOCKGUARD();
@@ -1835,6 +1833,9 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::GetTexture(DWORD Stage, IDirect3DBase
       default:
         assert(0);
         return E_FAIL;
+      }
+      if ((*ppTexture)) {
+        (*ppTexture)->AddRef();
       }
     } else {
       return E_FAIL;

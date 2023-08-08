@@ -842,12 +842,18 @@ namespace Commands {
   typedef uint16_t Flags;
 
   enum FlagBits: Flags {
-    DataInSharedHeap = 0b00000001,  // Any data the command operates with is stored in shared heap
+    DataInSharedHeap = 0b00000001,  // Any data a command operates with is stored in shared heap
                                     // and only allocation id(s) is transferred on the queue
+    DataIsReserved   = 0b00000010,  // Data was already reserved in data queue and only its
+                                    // offset is transferred
   };
 
   inline bool IsDataInSharedHeap(Flags flags) {
     return (flags & FlagBits::DataInSharedHeap) != 0;
+  }
+
+  inline bool IsDataReserved(Flags flags) {
+    return (flags & FlagBits::DataIsReserved) != 0;
   }
 }
 

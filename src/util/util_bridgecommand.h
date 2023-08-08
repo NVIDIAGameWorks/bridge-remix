@@ -228,7 +228,7 @@ public:
     inline void send_data(const DataT size, const void* obj) {
       ZoneScoped;
       if (gbBridgeRunning) {
-        size_t memUsed = align<size_t>(size, sizeof(DataT)) / sizeof(DataT);
+        size_t memUsed = align<size_t>(size, sizeof(DataT)) / sizeof(DataT) + 1;
         syncDataQueue(memUsed, true);
         const auto result = s_pWriterChannel->data->push(size, obj);
         if (RESULT_FAILURE(result)) {
@@ -256,7 +256,7 @@ public:
       ZoneScoped;
       uint8_t* blobPacketPtr = nullptr;
       if (gbBridgeRunning) {
-        size_t memUsed = align<size_t>(size, sizeof(DataT)) / sizeof(DataT);
+        size_t memUsed = align<size_t>(size, sizeof(DataT)) / sizeof(DataT) + 1;
         syncDataQueue(memUsed, true);
         const auto result = s_pWriterChannel->data->begin_blob_push(size, blobPacketPtr);
         if (RESULT_FAILURE(result)) {

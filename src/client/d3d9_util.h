@@ -43,11 +43,22 @@
 using namespace bridge_util;
 
 #ifdef _DEBUG
+
+class FunctionEntryExitLogger {
+public:
+  FunctionEntryExitLogger(const std::string functionName, void* thiz);
+  ~FunctionEntryExitLogger();
+private:
+  std::string m_functionName;
+  void* m_thiz;
+  static std::map<std::thread::id, std::atomic<size_t>> s_counters;
+};
+
 #define LogMissingFunctionCall() ONCE(_LogMissingFunctionCall(__FUNCTION__))
 #define LogMissingReadFunctionCall() ONCE(_LogMissingFunctionCall(__FUNCTION__, false))
 
-#define LogFunctionCall() if (GlobalOptions::getLogAllCalls()) { _LogFunctionCall(__FUNCTION__, this); }
-#define LogStaticFunctionCall() if (GlobalOptions::getLogAllCalls()) { _LogFunctionCall(__FUNCTION__, nullptr); }
+#define LogFunctionCall() FunctionEntryExitLogger _feeLogger(__FUNCTION__, this);
+#define LogStaticFunctionCall() FunctionEntryExitLogger _feeLogger(__FUNCTION__, nullptr);
 #else
 #define LogMissingFunctionCall()
 #define LogMissingReadFunctionCall()

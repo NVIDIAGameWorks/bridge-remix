@@ -58,6 +58,42 @@ uintptr_t D3dBaseIdFactory::getNextId() {
   return id_counter++;
 }
 
+#ifdef _DEBUG
+
+std::map<std::thread::id, std::atomic<size_t>> FunctionEntryExitLogger::s_counters;
+
+FunctionEntryExitLogger::FunctionEntryExitLogger(const std::string functionName, void* thiz) {
+  if (GlobalOptions::getLogAllCalls()) {
+    std::string tabs = "";
+    if (s_counters.count(std::this_thread::get_id()) == 0) {
+      s_counters[std::this_thread::get_id()] = 0;
+    }
+    std::atomic<size_t>& counter = s_counters[std::this_thread::get_id()];
+    for (int i = 0; i < counter; i++) {
+      tabs.append("\t");
+    }
+    counter++;
+    _LogFunctionCall(tabs + functionName + " ENTRY", thiz);
+    m_functionName = functionName;
+    m_thiz = thiz;
+  }
+
+}
+
+FunctionEntryExitLogger::~FunctionEntryExitLogger() {
+  if (GlobalOptions::getLogAllCalls()) {
+    std::atomic<size_t>& counter = s_counters[std::this_thread::get_id()];
+    counter--;
+    std::string tabs = "";
+    for (int i = 0; i < counter; i++) {
+      tabs.append("\t");
+    }
+    _LogFunctionCall(tabs + m_functionName + " EXIT", m_thiz);
+  }
+}
+
+#endif
+
 static bool gIsAttached = false;
 Guid gUniqueIdentifier;
 Process* gpServer = nullptr;

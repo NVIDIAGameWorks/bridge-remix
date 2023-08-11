@@ -50,14 +50,16 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   setWinProc(hWindow);
   UID currentUID = 0;
   {
-    ModuleClientCommand c(Commands::IDirect3D9Ex_CreateDevice, getId());
+    ModuleClientCommand c(m_ex ? Commands::IDirect3D9Ex_CreateDeviceEx : Commands::IDirect3D9Ex_CreateDevice, getId());
     currentUID = c.get_uid();
     c.send_many(           createParams.AdapterOrdinal,
                            createParams.DeviceType,
                 (uint32_t) createParams.hFocusWindow,
                            createParams.BehaviorFlags);
     if (m_ex) {
-      assert(pFullscreenDisplayMode);
+      if (!pFullscreenDisplayMode) {
+        Logger::err("A null pFullscreenDisplayMode was passed to IDirect3D9Ex::CreateDeviceEx().");
+      }
       c.send_data(sizeof(D3DDISPLAYMODEEX), pFullscreenDisplayMode);
     }
     c.send_data(sizeof(D3DPRESENT_PARAMETERS), &presParams);

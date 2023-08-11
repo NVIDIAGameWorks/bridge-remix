@@ -461,6 +461,7 @@ namespace Commands {
     case Bridge_Ack: return "Ack";
     case Bridge_Continue: return "Continue";
     case Bridge_Any: return "Any";
+    case Bridge_Response: return "Response";
     case Bridge_DebugMessage: return "DebugMessage";
 
     case Bridge_SharedHeap_AddSeg: return "SharedHeap_AddSeg";

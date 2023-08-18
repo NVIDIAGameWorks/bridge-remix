@@ -177,8 +177,9 @@ protected:
     }
     // Get most recent locked buffer and grab data before we unlock
     const auto& lockInfo = m_lockInfos.front();
-    size_t size = (lockInfo.sizeToLock == 0) ? m_desc.Size : lockInfo.sizeToLock;
     uint32_t offset = lockInfo.offsetToLock;
+    // Clamp the size since some applications can request unreasonably large lock sizes that are not actually used
+    size_t size = (lockInfo.sizeToLock == 0) ? m_desc.Size - offset : std::min(lockInfo.sizeToLock, m_desc.Size - offset);
     void* ptr = lockInfo.pbData;
 
     if (m_sendWhole) {

@@ -14,6 +14,10 @@ The free Commmunity Edition of Visual Studio will work fine.
 
 > **NOTE:** Make sure to install the `MSVC v142 - VS 2019 C++ x64/x86 build tools` from the _Individual Components_ list in the Visual Studio Installer interface. NVIDIA RTX Remix has only been tested with the Visual Studio 2019 build tools, and newer compiler versions may or may not work and/or lead to unexpected results/issues.
 
+[Meson](https://mesonbuild.com/) - v0.61.4 has been tested, latest version should work. Follow [instructions](https://mesonbuild.com/SimpleStart.html#installing-meson) on how to install and reboot the PC before moving on (Meson will indicate as much).
+
+Make sure PowerShell scripts are enabled. One-time system setup: run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned` in an elevated PowerShell prompt, then close and reopen any existing PowerShell prompts.
+
 # How to build
 
 To generate the initial Visual Studio solutions and build, run `build_bridge_all.bat`, which will generate four separate solutions for the debug/release configurations for both 32 and 64 bit builds.

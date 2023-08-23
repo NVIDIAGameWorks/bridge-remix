@@ -73,6 +73,9 @@ function SetupVS {
 
 function PerformBuild {
 	param(
+	    [Parameter(Mandatory)]
+		[string]$Backend,
+		
 		[Parameter(Mandatory)]
 		[string]$Platform,
 
@@ -80,15 +83,16 @@ function PerformBuild {
 		[string]$BuildFlavour,
 		
 		[Parameter(Mandatory)]
-		[string]$BuildSubDir
+		[string]$BuildSubDir,
+		
+		[string]$BuildTarget
 	)
-
 	$CurrentDir = Get-Location
 	$OutputDir = [IO.Path]::Combine($CurrentDir, "_output")
 	$BuildDir = [IO.Path]::Combine($CurrentDir, $BuildSubDir)
 
 	Push-Location $CurrentDir
-		$mesonArgs = "setup --buildtype `"$BuildFlavour`" --backend vs `"$BuildSubDir`" --debug"
+		$mesonArgs = "setup --buildtype `"$BuildFlavour`" --backend `"$Backend`" `"$BuildSubDir`" --debug"
 		Start-Process "meson" -ArgumentList $mesonArgs -wait
 	Pop-Location
 
@@ -96,11 +100,15 @@ function PerformBuild {
 		Write-Output "Failed to run meson setup"
 		exit $LASTEXITCODE
 	}
-
+	
 	# Note: Remove this if we modify Meson to include this copy step instead. For now only here so it only executes on build machines.
 	Copy-Item "Directory.Build.Props" -Destination $BuildDir
 	
 	Push-Location $BuildDir
+	if ( $BuildTarget ) {
+	    & meson compile unit_tests
+	}
+	else {
 		# The x86 solution platform is called Win32 so we have to fix up the parameter
 		If ($Platform -match "x86") {
 			& "msbuild"  @('bridge.sln', '/t:Build', '/p:Platform="Win32"', '/p:BuildProjectReferences=true', '/m', '/p:BuildInParallel=true')
@@ -108,6 +116,7 @@ function PerformBuild {
 		Else {
 			& "msbuild"  @('bridge.sln', '/t:Build', '/p:Platform="x64"', '/p:BuildProjectReferences=true', '/m', '/p:BuildInParallel=true')
 		}
+	}
 	Pop-Location
 
 	if ( $LASTEXITCODE -ne 0 ) {

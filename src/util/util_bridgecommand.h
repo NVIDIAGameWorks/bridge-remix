@@ -29,7 +29,6 @@
 #include "util_bridge_state.h"
 #include "util_ipcchannel.h"
 #include "util_singleton.h"
-
 #include "../tracy/tracy.hpp"
 
 extern bool gbBridgeRunning;
@@ -292,7 +291,33 @@ public:
     static inline void reset_counter() {
       s_cmdCounter = 0;
     }
-  
+    
+    static inline void print_data(std::string prefix, std::vector<Commands::D3D9Command>& commandList)       {
+      for (const auto& currentCommand : commandList) {
+        Logger::info(prefix + toString(currentCommand));
+      }
+    }
+
+    static inline void print_writer_data_sent() {
+      std::vector<Commands::D3D9Command> resultCommands = s_pWriterChannel->commands->getWriterQueueData();
+      print_data("Command sent: ", resultCommands);
+    }
+
+    static inline void print_writer_data_received() {
+      std::vector<Commands::D3D9Command> resultCommands = s_pWriterChannel->commands->getReaderQueueData();
+      print_data("Command received: ", resultCommands);
+    }
+
+    static inline void print_reader_data_sent() {
+      std::vector<Commands::D3D9Command> resultCommands = s_pReaderChannel->commands->getWriterQueueData();
+      print_data("Command sent: ", resultCommands);
+    }
+
+    static inline void print_reader_data_received() {
+      std::vector<Commands::D3D9Command> resultCommands = s_pReaderChannel->commands->getReaderQueueData();
+      print_data("Command received: ", resultCommands);
+    }
+
   private:
     const Commands::D3D9Command m_command;
     const uint32_t m_handle;

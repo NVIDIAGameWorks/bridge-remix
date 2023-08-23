@@ -2779,6 +2779,16 @@ void CALLBACK OnClientExited(void* context, BOOLEAN isTimeout) {
   Logger::err("The client process has unexpectedly exited, shutting down server as well!");
   gbBridgeRunning = false;
 
+  // Log history of recent client side commands sent and received by the server
+  Logger::info("Most recent Device Queue commands sent from Client");
+  DeviceBridge::Command::print_reader_data_sent();
+  Logger::info("Most recent Device Queue commands received by Server");
+  DeviceBridge::Command::print_reader_data_received();
+  Logger::info("Most recent Module Queue commands sent from Client");
+  ModuleBridge::Command::print_reader_data_sent();
+  Logger::info("Most recent Module Queue commands received by Server");
+  ModuleBridge::Command::print_reader_data_received();
+
   // Give the server some time to shut down, but then force quit so it doesn't hang forever
   uint32_t numRetries = 0;
   uint32_t maxRetries = ServerOptions::getShutdownRetries();

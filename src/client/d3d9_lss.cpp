@@ -543,6 +543,16 @@ void RemixDetach() {
       delete gpServer;
     }
 
+    // Log history of recent client side commands sent and received by the server
+    Logger::info("Most recent Device Queue commands sent from Client");
+    DeviceBridge::Command::print_writer_data_sent();
+    Logger::info("Most recent Device Queue commands received by Server");
+    DeviceBridge::Command::print_writer_data_received();
+    Logger::info("Most recent Module Queue commands sent from Client");
+    ModuleBridge::Command::print_writer_data_sent();
+    Logger::info("Most recent Module Queue commands received by Server");
+    ModuleBridge::Command::print_writer_data_received();
+
     // Clean up resources
     delete gpPresent;
 

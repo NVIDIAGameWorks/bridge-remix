@@ -232,3 +232,4 @@ bridge_version = vcs_tag(
   output: 'version.h')
 
 subdir('src')
+subdir('test')

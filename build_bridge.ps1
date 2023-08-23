@@ -34,9 +34,16 @@ function Build {
 		[string]$BuildFlavour,
 		
 		[Parameter(Mandatory)]
-		[string]$BuildSubDir
+		[string]$BuildSubDir,
+		
+		[string]$BuildTarget
 	)
 
 	SetupVS -Platform $Platform
-	PerformBuild -Platform $Platform -BuildFlavour $BuildFlavour -BuildSubDir $BuildSubDir
+	
+	if ($BuildTarget) {
+		PerformBuild -Backend ninja -Platform $Platform -BuildFlavour $BuildFlavour -BuildSubDir $BuildSubDir -BuildTarget $BuildTarget
+	} else {
+		PerformBuild -Backend vs -Platform $Platform -BuildFlavour $BuildFlavour -BuildSubDir $BuildSubDir 
+	}
 }

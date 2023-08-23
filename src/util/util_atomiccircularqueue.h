@@ -28,6 +28,7 @@
 #include <cstdio>
 #include <atomic>
 #include <assert.h>
+#include <vector>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
@@ -88,7 +89,7 @@ namespace bridge_util {
       ULONGLONG start = 0, curTick;
       do {
         const auto currentRead = m_read->load(std::memory_order_relaxed);
-        const auto nextRead = inc(currentRead);
+        const auto nextRead = queueIdxInc(currentRead);
         if (nextRead != m_write->load(std::memory_order_acquire)) {
           m_data[currentRead] = obj;
           // The store above is not atomic. Issue a membar after it to ensure
@@ -143,7 +144,7 @@ namespace bridge_util {
       do {
         const auto currentWrite = m_write->load(std::memory_order_relaxed);
         if (currentWrite != m_read->load(std::memory_order_acquire)) {
-          m_write->store(inc(currentWrite), std::memory_order_release);
+          m_write->store(queueIdxInc(currentWrite), std::memory_order_release);
           // Issue a membar before reading the data since it is not atomic
           std::atomic_thread_fence(std::memory_order_seq_cst);
           result = Result::Success;
@@ -167,8 +168,38 @@ namespace bridge_util {
       return currentWrite == m_read->load(std::memory_order_acquire);
     }
 
-    uint32_t inc(uint32_t idx) const {
+    std::vector<Commands::D3D9Command> buildQueueData(int maxQueueElements, int currentIndex) {
+      std::vector<Commands::D3D9Command> commandHistory;
+      int itemCount = 0;
+      while (itemCount < m_queueSize && itemCount < maxQueueElements) {
+        // To prevent adding default commands in the Queue to the command list
+        if (m_data[currentIndex].command == Commands::Bridge_Invalid)
+          break;
+        commandHistory.push_back(m_data[currentIndex].command);
+        currentIndex = queueIdxDec(currentIndex);
+        ++itemCount;
+      }
+      return commandHistory;
+    }
+
+    std::vector<Commands::D3D9Command> getWriterQueueData(int maxQueueElements=10) {
+      const auto currentRead = m_read->load(std::memory_order_relaxed);
+      int currentIndex = queueIdxDec(currentRead);
+      return buildQueueData(maxQueueElements, currentIndex);
+    }
+
+    std::vector<Commands::D3D9Command> getReaderQueueData(int maxQueueElements = 10) {
+      const auto currentWrite = m_write->load(std::memory_order_relaxed);
+      int currentIndex = queueIdxDec(currentWrite);
+      return buildQueueData(maxQueueElements, currentIndex);
+    }
+
+    uint32_t queueIdxInc(uint32_t idx) const {
       return idx + 1 < m_queueSize ? idx + 1 : 0;
+    }
+
+    uint32_t queueIdxDec(uint32_t idx) const {
+      return idx == 0 ?  m_queueSize - 1 : idx - 1 ;
     }
   };
 

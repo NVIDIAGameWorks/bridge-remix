@@ -93,6 +93,9 @@ function PerformBuild {
 
 	Push-Location $CurrentDir
 		$mesonArgs = "setup --buildtype `"$BuildFlavour`" --backend `"$Backend`" `"$BuildSubDir`" --debug"
+		if ( $BuildTarget ) {
+	            $mesonArgs += " -Denable_tests=`"$true`""
+	        }
 		Start-Process "meson" -ArgumentList $mesonArgs -wait
 	Pop-Location
 

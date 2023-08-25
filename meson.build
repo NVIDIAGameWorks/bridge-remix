@@ -232,4 +232,9 @@ bridge_version = vcs_tag(
   output: 'version.h')
 
 subdir('src')
-subdir('test')
+
+enable_tests = get_option('enable_tests')
+
+if enable_tests
+  subdir('test')
+endif

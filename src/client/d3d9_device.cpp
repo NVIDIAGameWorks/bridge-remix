@@ -2388,6 +2388,9 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::GetVertexDeclaration(IDirect3DVertexD
     BRIDGE_DEVICE_LOCKGUARD();
     auto* const pLssVertexDecl = bridge_cast<Direct3DVertexDeclaration9_LSS*>(*m_state.vertexDecl);
     *ppDecl = (IDirect3DVertexDeclaration9*) pLssVertexDecl;
+    if ((*ppDecl)) {
+      (*ppDecl)->AddRef();
+    }
   }
   return S_OK;
 }
@@ -2496,6 +2499,9 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::GetVertexShader(IDirect3DVertexShader
     BRIDGE_DEVICE_LOCKGUARD();
     auto pLssVertexShader = bridge_cast<Direct3DVertexShader9_LSS*>(*m_state.vertexShader);
     (*ppShader) = (IDirect3DVertexShader9*) pLssVertexShader;
+    if ((*ppShader)) {
+      (*ppShader)->AddRef();
+    }
   }
   return S_OK;
 }
@@ -2679,6 +2685,9 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::GetStreamSource(UINT StreamNumber, ID
     (*ppStreamData) = (IDirect3DVertexBuffer9*) pLssVertexBuffer;
     (*pOffsetInBytes) = m_state.streamOffsets[StreamNumber];
     (*pStride) = m_state.streamStrides[StreamNumber];
+    if ((*ppStreamData)) {
+      (*ppStreamData)->AddRef();
+    }
   }
   return S_OK;
 }
@@ -2737,7 +2746,7 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetIndices(IDirect3DIndexBuffer9* pIn
     c.send_data(id);
   }
   WAIT_FOR_OPTIONAL_SERVER_RESPONSE("SetIndices()", D3DERR_INVALIDCALL, currentUID);
-}
+} 
 
 template<bool EnableSync>
 HRESULT Direct3DDevice9Ex_LSS<EnableSync>::GetIndices(IDirect3DIndexBuffer9** ppIndexData) {
@@ -2752,6 +2761,9 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::GetIndices(IDirect3DIndexBuffer9** pp
     BRIDGE_DEVICE_LOCKGUARD();
     auto* pLssIndexBuffer = bridge_cast<Direct3DIndexBuffer9_LSS*>(*m_state.indices);
     (*ppIndexData) = (IDirect3DIndexBuffer9*) pLssIndexBuffer;
+    if ((*ppIndexData)) {
+      (*ppIndexData)->AddRef();
+    }
   }
   return S_OK;
 }
@@ -2833,6 +2845,9 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::GetPixelShader(IDirect3DPixelShader9*
     BRIDGE_DEVICE_LOCKGUARD();
     auto pLssPixelShader = bridge_cast<Direct3DPixelShader9_LSS*>(*m_state.pixelShader);
     (*ppShader) = (IDirect3DPixelShader9*) pLssPixelShader;
+    if ((*ppShader)) {
+      (*ppShader)->AddRef();
+    }
   }
   return S_OK;
 }
@@ -3422,7 +3437,7 @@ template<bool EnableSync>
 HRESULT Direct3DDevice9Ex_LSS<EnableSync>::ResetState() {
   for (uint32_t stageIdx = 0; stageIdx < kNumStageSamplers; ++stageIdx) {
     // Reset Texture States
-    m_state.textureStageStates[stageIdx][TextureStageStateType::ColorOp] = D3DTOP_MODULATE;
+    m_state.textureStageStates[stageIdx][TextureStageStateType::ColorOp] = stageIdx == 0 ? D3DTOP_MODULATE : D3DTOP_DISABLE;
     m_state.textureStageStates[stageIdx][TextureStageStateType::ColorArg1] = D3DTA_TEXTURE;
     m_state.textureStageStates[stageIdx][TextureStageStateType::ColorArg2] = D3DTA_CURRENT;
     m_state.textureStageStates[stageIdx][TextureStageStateType::AlphaOp] = stageIdx == 0 ? D3DTOP_SELECTARG1 : D3DTOP_DISABLE;
@@ -3497,7 +3512,7 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::ResetState() {
   m_state.renderStates[D3DRS_AMBIENT] = 0;
   m_state.renderStates[D3DRS_FOGVERTEXMODE] = D3DFOG_NONE;
   m_state.renderStates[D3DRS_COLORVERTEX] = TRUE;
-  m_state.renderStates[D3DRS_LOCALVIEWER] = FALSE;
+  m_state.renderStates[D3DRS_LOCALVIEWER] = TRUE;
   m_state.renderStates[D3DRS_NORMALIZENORMALS] = FALSE;
   m_state.renderStates[D3DRS_DIFFUSEMATERIALSOURCE] = D3DMCS_COLOR1;
   m_state.renderStates[D3DRS_SPECULARMATERIALSOURCE] = D3DMCS_COLOR2;
@@ -3505,7 +3520,7 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::ResetState() {
   m_state.renderStates[D3DRS_EMISSIVEMATERIALSOURCE] = D3DMCS_MATERIAL;
   m_state.renderStates[D3DRS_VERTEXBLEND] = D3DVBF_DISABLE;
   m_state.renderStates[D3DRS_CLIPPLANEENABLE] = 0;
-  m_state.renderStates[D3DRS_POINTSIZE] = bit_cast<DWORD>(64.f);
+  m_state.renderStates[D3DRS_POINTSIZE] = bit_cast<DWORD>(1.f);
   m_state.renderStates[D3DRS_POINTSIZE_MIN] = bit_cast<DWORD>(1.f);
   m_state.renderStates[D3DRS_POINTSPRITEENABLE] = FALSE;
   m_state.renderStates[D3DRS_POINTSCALEENABLE] = FALSE;
@@ -3516,7 +3531,7 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::ResetState() {
   m_state.renderStates[D3DRS_MULTISAMPLEMASK] = 0xFFFFffff;
   m_state.renderStates[D3DRS_PATCHEDGESTYLE] = D3DPATCHEDGE_DISCRETE;
   m_state.renderStates[D3DRS_DEBUGMONITORTOKEN] = D3DDMT_ENABLE;
-  m_state.renderStates[D3DRS_POINTSIZE_MAX] = bit_cast<DWORD>(64.f);
+  m_state.renderStates[D3DRS_POINTSIZE_MAX] = bit_cast<DWORD>(8192.f);
   m_state.renderStates[D3DRS_INDEXEDVERTEXBLENDENABLE] = FALSE;
   m_state.renderStates[D3DRS_COLORWRITEENABLE] = 0x0000000F;
   m_state.renderStates[D3DRS_TWEENFACTOR] = bit_cast<DWORD>(0.f);

@@ -222,8 +222,7 @@ protected:
     // Depth Stencil Surface
     D3DAutoPtr depthStencil;
     // Transforms
-    std::array<D3DMATRIX, caps::MaxTransforms> transforms
-      = { {{1.0f, 0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 0.0f, 1.0f}} };
+    std::array<D3DMATRIX, caps::MaxTransforms> transforms;
     // Viewport
     D3DVIEWPORT9 viewport;
     // Material
@@ -235,7 +234,7 @@ protected:
     // Clip Plane
     std::array<float[4], caps::MaxClipPlanes> clipPlanes;
     // Render State
-    std::array<DWORD, kNumRenderStates> renderStates = { 0 };
+    std::array<DWORD, kNumRenderStates> renderStates;
     // Textures
     std::array<D3DAutoPtr, kNumStageSamplers> textures;
     std::array<D3DRESOURCETYPE, kNumStageSamplers> textureTypes;

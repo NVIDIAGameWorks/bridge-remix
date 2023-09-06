@@ -311,7 +311,7 @@ HRESULT Direct3D9Ex_LSS::CheckDeviceFormat(UINT Adapter, D3DDEVTYPE DeviceType, 
     currentUID = c.get_uid();
     c.send_many(Adapter, DeviceType, AdapterFormat, Usage, RType, CheckFormat);
   }
-  WAIT_FOR_SERVER_RESPONSE("CheckDeviceFormat()", E_FAIL, currentUID);
+  WAIT_FOR_SERVER_RESPONSE("CheckDeviceFormat()", D3DERR_NOTAVAILABLE, currentUID);
 
   HRESULT res = (HRESULT) ModuleBridge::get_data();
   ModuleBridge::pop_front();

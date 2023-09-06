@@ -39,6 +39,24 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   , m_createParams(createParams) {
   Logger::debug("Creating Device...");
 
+  // D3D9 seems to inialize its state to this
+  memset(&m_state.renderStates[0], 0xBAADCAFE, sizeof(m_state.renderStates));
+
+  // Initialize the transforms
+  memset(&m_state.transforms[0], 0, sizeof(m_state.transforms));
+  for (uint32_t i = 0; i < 256; i++) {
+    m_state.transforms[i].m[0][0] = 1.f;
+    m_state.transforms[i].m[1][1] = 1.f;
+    m_state.transforms[i].m[2][2] = 1.f;
+    m_state.transforms[i].m[3][3] = 1.f;
+  }
+
+  // Initialize the implicit viewport
+  memset(&m_state.viewport, 0, sizeof(m_state.viewport));
+  m_state.viewport.Width = presParams.BackBufferWidth;
+  m_state.viewport.Height = presParams.BackBufferHeight;
+  m_state.viewport.MaxZ = 1.f;
+
   // Games may override client's exception handler when it was setup early.
   // Attempt to restore the exeption handler.
   SetupExceptionHandler();

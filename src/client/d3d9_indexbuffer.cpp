@@ -63,7 +63,6 @@ ULONG Direct3DIndexBuffer9_LSS::Release() {
 }
 
 void Direct3DIndexBuffer9_LSS::onDestroy() {
-  BRIDGE_PARENT_DEVICE_LOCKGUARD();
   ClientMessage { Commands::IDirect3DIndexBuffer9_Destroy, getId() };
 }
 
@@ -102,11 +101,8 @@ HRESULT Direct3DIndexBuffer9_LSS::GetDesc(D3DINDEXBUFFER_DESC* pDesc) {
   (*pDesc) = m_desc;
 
   if (GlobalOptions::getSendReadOnlyCalls()) {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
-    {
-      ClientMessage c(Commands::IDirect3DIndexBuffer9_GetDesc, getId());
-      c.send_data(sizeof(D3DINDEXBUFFER_DESC), pDesc);
-    }
+    ClientMessage c(Commands::IDirect3DIndexBuffer9_GetDesc, getId());
+    c.send_data(sizeof(D3DINDEXBUFFER_DESC), pDesc);
   }
   return S_OK;
 }

@@ -63,10 +63,7 @@ ULONG Direct3DVertexBuffer9_LSS::Release() {
 }
 
 void Direct3DVertexBuffer9_LSS::onDestroy() {
-  BRIDGE_PARENT_DEVICE_LOCKGUARD();
-  {
-    ClientMessage { Commands::IDirect3DVertexBuffer9_Destroy, getId() };
-  }
+  ClientMessage { Commands::IDirect3DVertexBuffer9_Destroy, getId() };
 }
 
 HRESULT Direct3DVertexBuffer9_LSS::Lock(UINT OffsetToLock, UINT SizeToLock, void** ppbData, DWORD Flags) {
@@ -110,11 +107,8 @@ HRESULT Direct3DVertexBuffer9_LSS::GetDesc(D3DVERTEXBUFFER_DESC* pDesc) {
   (*pDesc) = m_desc;
 
   if (GlobalOptions::getSendReadOnlyCalls()) {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
-    {
-      ClientMessage c(Commands::IDirect3DVertexBuffer9_GetDesc, getId());
-      c.send_data(sizeof(D3DVERTEXBUFFER_DESC), pDesc);
-    }
+    ClientMessage c(Commands::IDirect3DVertexBuffer9_GetDesc, getId());
+    c.send_data(sizeof(D3DVERTEXBUFFER_DESC), pDesc);
   }
   return S_OK;
 }

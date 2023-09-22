@@ -28,9 +28,6 @@
 #include "util_bridge_assert.h"
 #include "util_modulecommand.h"
 
-#define BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD \
-   BRIDGE_COMMAND_LOCKGUARD(ModuleBridge::getWriterChannel().m_mutex) \
-
 #undef WAIT_FOR_SERVER_RESPONSE
 #define WAIT_FOR_SERVER_RESPONSE(func, value, uidVal) \
   { \
@@ -91,7 +88,6 @@ void Direct3D9Ex_LSS::onDestroy() {
   }
 
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand { Commands::IDirect3D9Ex_Destroy, getId() };
   }
 
@@ -115,7 +111,6 @@ UINT Direct3D9Ex_LSS::GetAdapterCount() {
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterCount);
     currentUID = c.get_uid();
   }
@@ -147,7 +142,6 @@ HRESULT Direct3D9Ex_LSS::GetAdapterIdentifier(UINT Adapter, DWORD Flags, D3DADAP
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterIdentifier);
     currentUID = c.get_uid();
     c.send_many(Adapter, Flags);
@@ -185,7 +179,6 @@ UINT Direct3D9Ex_LSS::GetAdapterModeCount(UINT Adapter, D3DFORMAT Format) {
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterModeCount);
     currentUID = c.get_uid();
     c.send_many(Adapter, Format);
@@ -214,7 +207,6 @@ HRESULT Direct3D9Ex_LSS::EnumAdapterModes(UINT Adapter, D3DFORMAT Format, UINT M
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_EnumAdapterModes);
     currentUID = c.get_uid();
     c.send_many(Adapter, Format, Mode);
@@ -251,7 +243,6 @@ HRESULT Direct3D9Ex_LSS::GetAdapterDisplayMode(UINT Adapter, D3DDISPLAYMODE* pMo
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterDisplayMode);
     currentUID = c.get_uid();
     c.send_data(Adapter);
@@ -283,7 +274,6 @@ HRESULT Direct3D9Ex_LSS::CheckDeviceType(UINT Adapter, D3DDEVTYPE CheckType, D3D
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDeviceType);
     currentUID = c.get_uid();
     c.send_many(Adapter, CheckType, DisplayFormat, BackBufferFormat, Windowed);
@@ -306,7 +296,6 @@ HRESULT Direct3D9Ex_LSS::CheckDeviceFormat(UINT Adapter, D3DDEVTYPE DeviceType, 
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDeviceFormat);
     currentUID = c.get_uid();
     c.send_many(Adapter, DeviceType, AdapterFormat, Usage, RType, CheckFormat);
@@ -333,7 +322,6 @@ HRESULT Direct3D9Ex_LSS::CheckDeviceMultiSampleType(UINT Adapter, D3DDEVTYPE Dev
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDeviceMultiSampleType);
     currentUID = c.get_uid();
     c.send_many(Adapter, DeviceType, SurfaceFormat, Windowed, MultiSampleType);
@@ -362,7 +350,6 @@ HRESULT Direct3D9Ex_LSS::CheckDepthStencilMatch(UINT Adapter, D3DDEVTYPE DeviceT
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDepthStencilMatch);
     currentUID = c.get_uid();
     c.send_many(Adapter, DeviceType, AdapterFormat, RenderTargetFormat, DepthStencilFormat);
@@ -385,7 +372,6 @@ HRESULT Direct3D9Ex_LSS::CheckDeviceFormatConversion(UINT Adapter, D3DDEVTYPE De
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_CheckDeviceFormatConversion);
     currentUID = c.get_uid();
     c.send_many(Adapter, DeviceType, SourceFormat, TargetFormat);
@@ -417,7 +403,6 @@ HRESULT Direct3D9Ex_LSS::GetDeviceCaps(UINT Adapter, D3DDEVTYPE DeviceType, D3DC
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetDeviceCaps);
     currentUID = c.get_uid();
     c.send_many(Adapter, DeviceType);
@@ -445,7 +430,6 @@ HMONITOR Direct3D9Ex_LSS::GetAdapterMonitor(UINT Adapter) {
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterMonitor);
     currentUID = c.get_uid();
     c.send_data(Adapter);
@@ -485,7 +469,6 @@ UINT Direct3D9Ex_LSS::GetAdapterModeCountEx(UINT Adapter, CONST D3DDISPLAYMODEFI
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterModeCountEx, getId());
     currentUID = c.get_uid();
     c.send_data(Adapter);
@@ -514,7 +497,6 @@ HRESULT Direct3D9Ex_LSS::EnumAdapterModesEx(UINT Adapter, CONST D3DDISPLAYMODEFI
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_EnumAdapterModesEx);
     currentUID = c.get_uid();
     c.send_data(Adapter);
@@ -551,7 +533,6 @@ HRESULT Direct3D9Ex_LSS::GetAdapterDisplayModeEx(UINT Adapter, D3DDISPLAYMODEEX*
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterDisplayModeEx);
     currentUID = c.get_uid();
     c.send_data(Adapter);
@@ -608,7 +589,6 @@ HRESULT Direct3D9Ex_LSS::GetAdapterLUID(UINT Adapter, LUID* pLUID) {
   UID currentUID = 0;
   // Send command to server and wait for response
   {
-    BRIDGE_MODULE_WRITE_COMMAND_LOCKGUARD;
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterLUID);
     currentUID = c.get_uid();
     c.send_data(Adapter);

@@ -53,10 +53,7 @@ ULONG Direct3DQuery9_LSS::Release() {
 
 void Direct3DQuery9_LSS::onDestroy() {
   LogFunctionCall();
-  BRIDGE_PARENT_DEVICE_LOCKGUARD();
-  {
-    ClientMessage { Commands::IDirect3DQuery9_Destroy, getId() };
-  }
+  ClientMessage { Commands::IDirect3DQuery9_Destroy, getId() };
 }
 
 HRESULT Direct3DQuery9_LSS::GetDevice(IDirect3DDevice9** ppDevice) {
@@ -96,15 +93,12 @@ HRESULT Direct3DQuery9_LSS::Issue(DWORD dwIssueFlags) {
   LogFunctionCall();
   
   UID currentUID = 0;
+  
   {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
-    {
-      ClientMessage c(Commands::IDirect3DQuery9_Issue, getId());
-      currentUID = c.get_uid();
-      c.send_data(dwIssueFlags);
-    }
+    ClientMessage c(Commands::IDirect3DQuery9_Issue, getId());
+    currentUID = c.get_uid();
+    c.send_data(dwIssueFlags);
   }
-
   WAIT_FOR_OPTIONAL_SERVER_RESPONSE("Direct3DQuery9_LSS::Issue()", D3DERR_INVALIDCALL, currentUID);
 
   return S_OK;
@@ -115,13 +109,10 @@ HRESULT Direct3DQuery9_LSS::GetData(void* pData, DWORD dwSize, DWORD dwGetDataFl
 
   UID currentUID = 0;
   {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
-    {
-      ClientMessage c(Commands::IDirect3DQuery9_GetData, getId());
-      currentUID = c.get_uid();
-      c.send_data(dwSize);
-      c.send_data(dwGetDataFlags);
-    }
+    ClientMessage c(Commands::IDirect3DQuery9_GetData, getId());
+    currentUID = c.get_uid();
+    c.send_data(dwSize);
+    c.send_data(dwGetDataFlags);
   }
 
   WAIT_FOR_SERVER_RESPONSE("Direct3DQuery9_LSS::GetData()", D3DERR_INVALIDCALL, currentUID);

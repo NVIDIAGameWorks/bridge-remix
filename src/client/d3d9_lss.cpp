@@ -99,6 +99,7 @@ Guid gUniqueIdentifier;
 Process* gpServer = nullptr;
 NamedSemaphore* gpPresent = nullptr;
 ShadowMap gShadowMap;
+std::mutex gShadowMapMutex;
 std::unordered_map<HWND, WNDPROC> ogWndProc;
 std::unique_ptr<MessageChannelClient> gpRemixMessageChannel;  // Message channel with the Remix renderer
 std::unique_ptr<MessageChannelClient> gpServerMessageChannel; // Message channel with the Bridge server

@@ -56,7 +56,6 @@ ULONG Direct3DStateBlock9_LSS::Release() {
 }
 
 void Direct3DStateBlock9_LSS::onDestroy() {
-  BRIDGE_PARENT_DEVICE_LOCKGUARD();
   ClientMessage { Commands::IDirect3DStateBlock9_Destroy, getId() };
 }
 
@@ -194,7 +193,6 @@ HRESULT Direct3DStateBlock9_LSS::Capture() {
   LogFunctionCall();
   LocalCapture();
   {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
     ClientMessage { Commands::IDirect3DStateBlock9_Capture, getId() };
   }
   return S_OK;
@@ -204,7 +202,6 @@ HRESULT Direct3DStateBlock9_LSS::Apply() {
   LogFunctionCall();
   StateTransfer(m_dirtyFlags, m_pDevice->m_state, m_captureState);
   {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
     ClientMessage { Commands::IDirect3DStateBlock9_Apply, getId() };
   }
   return S_OK;

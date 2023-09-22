@@ -58,7 +58,6 @@ ULONG Direct3DVolume9_LSS::Release() {
 }
 
 void Direct3DVolume9_LSS::onDestroy() {
-  BRIDGE_PARENT_DEVICE_LOCKGUARD();
   ClientMessage { Commands::IDirect3DVolume9_Destroy, getId() };
 }
 

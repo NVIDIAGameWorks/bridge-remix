@@ -57,7 +57,6 @@ ULONG Direct3DSwapChain9_LSS::Release() {
 }
 
 void Direct3DSwapChain9_LSS::onDestroy() {
-  BRIDGE_PARENT_DEVICE_LOCKGUARD();
   ClientMessage c(Commands::IDirect3DSwapChain9_Destroy, getId());
 }
 
@@ -81,7 +80,6 @@ HRESULT Direct3DSwapChain9_LSS::Present(CONST RECT* pSourceRect, CONST RECT* pDe
 
   // Send present first
   {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
     ClientMessage c(Commands::IDirect3DSwapChain9_Present, getId());
     c.send_data(sizeof(RECT), (void*) pSourceRect);
     c.send_data(sizeof(RECT), (void*) pDestRect);
@@ -114,7 +112,6 @@ HRESULT Direct3DSwapChain9_LSS::GetFrontBufferData(IDirect3DSurface9* pDestSurfa
 
   UID currentUID = 0;
   {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
     ClientMessage c(Commands::IDirect3DSwapChain9_GetFrontBufferData, getId());
     currentUID = c.get_uid();
     c.send_data((uint32_t) pIDestinationSurface);
@@ -132,41 +129,38 @@ HRESULT Direct3DSwapChain9_LSS::GetBackBuffer(UINT iBackBuffer, D3DBACKBUFFER_TY
     return D3DERR_INVALIDCALL;
   }
 
-  UID currentUID = 0;
-  {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
-    if (auto surface = getChild(iBackBuffer)) {
-      surface->AddRef();
-      *ppBackBuffer = surface;
-      return D3D_OK;
-    }
-
-    // Insert our own IDirect3DSurface9 interface implementation
-    D3DSURFACE_DESC desc;
-    desc.Width = m_presParam.BackBufferWidth;
-    desc.Height = m_presParam.BackBufferHeight;
-    desc.MultiSampleQuality = m_presParam.MultiSampleQuality;
-    desc.MultiSampleType = m_presParam.MultiSampleType;
-    desc.Format = m_presParam.BackBufferFormat;
-    desc.Usage = D3DUSAGE_RENDERTARGET;
-    desc.Pool = D3DPOOL_DEFAULT;
-    desc.Type = D3DRTYPE_SURFACE;
-
-    auto* const pLssSurface = trackWrapper(new Direct3DSurface9_LSS(m_pDevice, this, desc));
-    setChild(iBackBuffer, pLssSurface);
-
-    (*ppBackBuffer) = pLssSurface;
-
-    // Add handles for backbuffer
-    {
-      ClientMessage c(Commands::IDirect3DSwapChain9_GetBackBuffer, getId());
-      currentUID = c.get_uid();
-      c.send_data(iBackBuffer);
-      c.send_data(Type);
-      c.send_data(pLssSurface->getId());
-    }
+  if (auto surface = getChild(iBackBuffer)) {
+    surface->AddRef();
+    *ppBackBuffer = surface;
+    return D3D_OK;
   }
 
+  // Insert our own IDirect3DSurface9 interface implementation
+  D3DSURFACE_DESC desc;
+  desc.Width = m_presParam.BackBufferWidth;
+  desc.Height = m_presParam.BackBufferHeight;
+  desc.MultiSampleQuality = m_presParam.MultiSampleQuality;
+  desc.MultiSampleType = m_presParam.MultiSampleType;
+  desc.Format = m_presParam.BackBufferFormat;
+  desc.Usage = D3DUSAGE_RENDERTARGET;
+  desc.Pool = D3DPOOL_DEFAULT;
+  desc.Type = D3DRTYPE_SURFACE;
+
+  Direct3DSurface9_LSS* pLssSurface = trackWrapper(new Direct3DSurface9_LSS(m_pDevice, this, desc));
+  setChild(iBackBuffer, pLssSurface);
+    
+  (*ppBackBuffer) = pLssSurface;
+
+  UID currentUID = 0;
+  // Add handles for backbuffer
+  {
+    ClientMessage c(Commands::IDirect3DSwapChain9_GetBackBuffer, getId());
+    currentUID = c.get_uid();
+    c.send_data(iBackBuffer);
+    c.send_data(Type);
+    c.send_data(pLssSurface->getId());
+  }
+  
   WAIT_FOR_OPTIONAL_SERVER_RESPONSE("GetBackBuffer()", D3DERR_INVALIDCALL, currentUID);
 }
 

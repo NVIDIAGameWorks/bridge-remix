@@ -66,7 +66,6 @@ ULONG Direct3DTexture9_LSS::Release() {
 }
 
 void Direct3DTexture9_LSS::onDestroy() {
-  BRIDGE_PARENT_DEVICE_LOCKGUARD();
   ClientMessage { Commands::IDirect3DTexture9_Destroy, getId() };
 }
 
@@ -83,12 +82,9 @@ HRESULT Direct3DTexture9_LSS::GetLevelDesc(UINT Level, D3DSURFACE_DESC* pDesc) {
   *pDesc = getLevelDesc(Level);
 
   if (GlobalOptions::getSendReadOnlyCalls()) {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
-    {
-      ClientMessage c(Commands::IDirect3DTexture9_GetLevelDesc, getId());
-      c.send_data(sizeof(D3DSURFACE_DESC), pDesc);
-      c.send_data(Level);
-    }
+    ClientMessage c(Commands::IDirect3DTexture9_GetLevelDesc, getId());
+    c.send_data(sizeof(D3DSURFACE_DESC), pDesc);
+    c.send_data(Level);
   }
   return S_OK;
 }
@@ -114,31 +110,28 @@ HRESULT Direct3DTexture9_LSS::GetSurfaceLevel(UINT Level, IDirect3DSurface9** pp
   if (ppSurfaceLevel == nullptr)
     return D3DERR_INVALIDCALL;
 
-  {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
-
-    if (auto surface = getChild(Level)) {
-      surface->AddRef();
-      *ppSurfaceLevel = surface;
-      return D3D_OK;
-    }
-
-    // Insert our own IDirect3DSurface9 interface implementation
-    D3DSURFACE_DESC desc;
-    GetLevelDesc(Level, &desc);
-
-    auto* const pLssSurface = trackWrapper(new Direct3DSurface9_LSS(m_pDevice, this, desc));
-    setChild(Level, pLssSurface);
-
-    (*ppSurfaceLevel) = pLssSurface;
-
-    // Add handles for both the texture and surface
-    {
-      ClientMessage c(Commands::IDirect3DTexture9_GetSurfaceLevel, getId());
-      c.send_data(Level);
-      c.send_data(pLssSurface->getId());
-    }
+  if (auto surface = getChild(Level)) {
+    surface->AddRef();
+    *ppSurfaceLevel = surface;
+    return D3D_OK;
   }
+
+  // Insert our own IDirect3DSurface9 interface implementation
+  D3DSURFACE_DESC desc;
+  GetLevelDesc(Level, &desc);
+
+  Direct3DSurface9_LSS* pLssSurface = trackWrapper(new Direct3DSurface9_LSS(m_pDevice, this, desc));
+  setChild(Level, pLssSurface);
+    
+  (*ppSurfaceLevel) = pLssSurface;
+
+  // Add handles for both the texture and surface
+  {
+    ClientMessage c(Commands::IDirect3DTexture9_GetSurfaceLevel, getId());
+    c.send_data(Level);
+    c.send_data(pLssSurface->getId());
+  }
+  
   return S_OK;
 }
 
@@ -152,7 +145,7 @@ HRESULT Direct3DTexture9_LSS::LockRect(UINT Level, D3DLOCKED_RECT* pLockedRect, 
   if (auto surface = getChild(Level)) {
     return surface->LockRect(pLockedRect, pRect, Flags);
   }
-
+  
   // Child surface was not initialized - use getter and initialize child in the process
   IDirect3DSurface9* pSurface;
   HRESULT hresult = GetSurfaceLevel(Level, &pSurface);
@@ -179,7 +172,7 @@ HRESULT Direct3DTexture9_LSS::UnlockRect(UINT Level) {
   if (auto surface = getChild(Level)) {
     return surface->UnlockRect();
   }
-
+  
   return D3DERR_INVALIDCALL;
 }
 
@@ -188,12 +181,9 @@ HRESULT Direct3DTexture9_LSS::AddDirtyRect(CONST RECT* pDirtyRect) {
   
   UID currentUID = 0;
   {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
-    {
-      ClientMessage c(Commands::IDirect3DTexture9_AddDirtyRect, getId());
-      currentUID = c.get_uid();
-      c.send_data(sizeof(RECT), (void*) pDirtyRect);
-    }
+    ClientMessage c(Commands::IDirect3DTexture9_AddDirtyRect, getId());
+    currentUID = c.get_uid();
+    c.send_data(sizeof(RECT), (void*) pDirtyRect);
   }
   WAIT_FOR_OPTIONAL_SERVER_RESPONSE("AddDirtyRect()", D3DERR_INVALIDCALL, currentUID);
 }

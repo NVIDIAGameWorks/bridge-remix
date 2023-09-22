@@ -65,10 +65,7 @@ ULONG Direct3DCubeTexture9_LSS::Release() {
 }
 
 void Direct3DCubeTexture9_LSS::onDestroy() {
-  BRIDGE_PARENT_DEVICE_LOCKGUARD();
-  {
-    ClientMessage { Commands::IDirect3DCubeTexture9_Destroy, getId() };
-  }
+   ClientMessage { Commands::IDirect3DCubeTexture9_Destroy, getId() };
 }
 
 HRESULT Direct3DCubeTexture9_LSS::GetLevelDesc(UINT Level, D3DSURFACE_DESC* pDesc) {
@@ -83,12 +80,9 @@ HRESULT Direct3DCubeTexture9_LSS::GetLevelDesc(UINT Level, D3DSURFACE_DESC* pDes
   *pDesc = getLevelDesc(Level);
 
   if (GlobalOptions::getSendReadOnlyCalls()) {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
-    {
-      ClientMessage c(Commands::IDirect3DCubeTexture9_GetLevelDesc, getId());
-      c.send_data(sizeof(D3DSURFACE_DESC), pDesc);
-      c.send_data(Level);
-    }
+    ClientMessage c(Commands::IDirect3DCubeTexture9_GetLevelDesc, getId());
+    c.send_data(sizeof(D3DSURFACE_DESC), pDesc);
+    c.send_data(Level);
   }
   return S_OK;
 }
@@ -125,22 +119,24 @@ HRESULT Direct3DCubeTexture9_LSS::GetCubeMapSurface(D3DCUBEMAP_FACES FaceType, U
     return D3D_OK;
   }
 
+  Direct3DSurface9_LSS* pLssCubeMapSurface = nullptr;
+  D3DSURFACE_DESC desc;
   {
     BRIDGE_PARENT_DEVICE_LOCKGUARD();
     // Insert our own IDirect3DSurface9 interface implementation
-    D3DSURFACE_DESC desc;
+
     GetLevelDesc(Level, &desc);
 
-    auto* const pLssCubeMapSurface = trackWrapper(new Direct3DSurface9_LSS(m_pDevice, this, desc));
+    pLssCubeMapSurface = trackWrapper(new Direct3DSurface9_LSS(m_pDevice, this, desc));
     (*ppCubeMapSurface) = (IDirect3DSurface9*) pLssCubeMapSurface;
 
     setChild(surfaceIndex, pLssCubeMapSurface);
+  }
 
-    {
-      ClientMessage c(Commands::IDirect3DCubeTexture9_GetCubeMapSurface, getId());
-      c.send_many(FaceType, Level);
-      c.send_data(pLssCubeMapSurface->getId());
-    }
+  {
+    ClientMessage c(Commands::IDirect3DCubeTexture9_GetCubeMapSurface, getId());
+    c.send_many(FaceType, Level);
+    c.send_data(pLssCubeMapSurface->getId());
   }
   return S_OK;
 }
@@ -197,11 +193,8 @@ HRESULT Direct3DCubeTexture9_LSS::UnlockRect(D3DCUBEMAP_FACES FaceType, UINT Lev
 HRESULT Direct3DCubeTexture9_LSS::AddDirtyRect(D3DCUBEMAP_FACES FaceType, CONST RECT* pDirtyRect) {
   LogFunctionCall();
   {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
-    {
-      ClientMessage c(Commands::IDirect3DCubeTexture9_AddDirtyRect, getId());
-      c.send_data(sizeof(RECT), (void*) pDirtyRect);
-    }
+    ClientMessage c(Commands::IDirect3DCubeTexture9_AddDirtyRect, getId());
+    c.send_data(sizeof(RECT), (void*) pDirtyRect);
   }
   return S_OK;
 }

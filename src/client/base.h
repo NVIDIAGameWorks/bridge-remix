@@ -34,6 +34,8 @@
 using ShadowMap = std::unordered_map<uintptr_t, IUnknown*>;
 extern ShadowMap gShadowMap;
 
+extern std::mutex gShadowMapMutex;
+
 enum class D3D9ObjectType: char {
   Module,
   Device,
@@ -372,7 +374,9 @@ protected:
   }
 
   ~D3DBase() override {
+    gShadowMapMutex.lock();
     gShadowMap.erase(m_id);
+    gShadowMapMutex.unlock();
 #ifdef _DEBUG
     Logger::debug(format_string("%s object [%p/%p] destroyed",
                                 toD3D9ObjectTypeName<T>(), this, m_id));

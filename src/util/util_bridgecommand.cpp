@@ -256,6 +256,11 @@ DECL_COMMAND_FUNC(,Command,const Commands::D3D9Command command,
   // can be alive at a time to ensure data integrity on the command and data buffers. To resolve
   // this issue I recommend enclosing the Command object in its own scope block, and make
   // sure there is no command nesting happening either.
+
+#ifdef REMIX_BRIDGE_CLIENT
+  s_pWriterChannel->m_mutex.lock();
+#endif
+
   assert(!s_pWriterChannel->pbCmdInProgress->load());
   if (s_pWriterChannel->pbCmdInProgress->load()) {
     Logger::err("Multiple active Command instances detected!");
@@ -317,6 +322,7 @@ DECL_COMMAND_FUNC(,~Command) {
   s_pWriterChannel->pbCmdInProgress->store(false);
 #ifdef REMIX_BRIDGE_CLIENT
   ++s_cmdUID;
+  s_pWriterChannel->m_mutex.unlock();
 #endif
 }
 

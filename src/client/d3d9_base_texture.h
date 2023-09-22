@@ -91,11 +91,13 @@ public:
   STDMETHOD_(DWORD, SetLOD)(THIS_ DWORD LODNew) {
     LogFunctionCall();
 
-    DWORD oldLod = m_lod;
-    m_lod = LODNew;
-
-    if (oldLod != LODNew) {
+    DWORD oldLod;
+    {
       BRIDGE_PARENT_DEVICE_LOCKGUARD();
+      oldLod = m_lod;
+      m_lod = LODNew;
+    }
+    if (oldLod != LODNew) {
       ClientMessage c(Commands::IDirect3DBaseTexture9_SetLOD, getId());
       c.send_data(LODNew);
     }
@@ -105,6 +107,7 @@ public:
 
   STDMETHOD_(DWORD, GetLOD)(THIS) {
     LogFunctionCall();
+    BRIDGE_PARENT_DEVICE_LOCKGUARD();
     return m_lod;
   }
 
@@ -125,23 +128,28 @@ public:
       return D3DERR_INVALIDCALL;
     }
 
-    if (m_mipFilter != FilterType) {
-      m_mipFilter = FilterType;
-      UID currentUID = 0;
-      {
-        BRIDGE_PARENT_DEVICE_LOCKGUARD();
-        ClientMessage c(Commands::IDirect3DBaseTexture9_SetAutoGenFilterType, getId());
-        currentUID = c.get_uid();
-        c.send_data(FilterType);
+    {
+      BRIDGE_PARENT_DEVICE_LOCKGUARD();
+      if (m_mipFilter == FilterType) {
+        return S_OK;
+      } else {
+        m_mipFilter = FilterType;
       }
-      WAIT_FOR_OPTIONAL_SERVER_RESPONSE("SetAutoGenFilterType()", D3DERR_INVALIDCALL, currentUID);
     }
-
-    return S_OK;
+ 
+    UID currentUID = 0;
+    {
+      ClientMessage c(Commands::IDirect3DBaseTexture9_SetAutoGenFilterType, getId());
+      currentUID = c.get_uid();
+      c.send_data(FilterType);
+    }
+    WAIT_FOR_OPTIONAL_SERVER_RESPONSE("SetAutoGenFilterType()", D3DERR_INVALIDCALL, currentUID);
   }
 
   STDMETHOD_(D3DTEXTUREFILTERTYPE, GetAutoGenFilterType)(THIS) {
     LogFunctionCall();
+
+    BRIDGE_PARENT_DEVICE_LOCKGUARD();
     return m_mipFilter;
   }
 
@@ -149,7 +157,6 @@ public:
     LogFunctionCall();
 
     if (m_desc.Usage & D3DUSAGE_AUTOGENMIPMAP) {
-      BRIDGE_PARENT_DEVICE_LOCKGUARD();
       ClientMessage c(Commands::IDirect3DBaseTexture9_GenerateMipSubLevels, getId());
     }
   }

@@ -115,7 +115,6 @@ public:
     m_priority = PriorityNew;
 
     if (oldPriority != m_priority) {
-      BRIDGE_PARENT_DEVICE_LOCKGUARD();
       ClientMessage c(Commands::IDirect3DResource9_SetPriority, getId());
       c.send_data(PriorityNew);
     }
@@ -132,7 +131,6 @@ public:
   STDMETHOD_(void, PreLoad)(THIS) {
     LogFunctionCall();
 
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
     ClientMessage c(Commands::IDirect3DResource9_PreLoad, getId());
   }
 
@@ -158,6 +156,7 @@ public:
 
 protected:
   ~Direct3DContainer9_LSS() override {
+    BRIDGE_PARENT_DEVICE_LOCKGUARD();
     // Container is about to be destroyed, need to destroy its children, if any.
     for (auto child : m_children) {
       if (child) {
@@ -166,16 +165,14 @@ protected:
     }
   }
 
-  inline bool hasChild(uint32_t idx) const {
-    return getChild(idx) != nullptr;
-  }
-
   inline ChildType* getChild(uint32_t idx) const {
+    BRIDGE_PARENT_DEVICE_LOCKGUARD();
     assert(idx < m_children.size() && "Child index overrun!");
     return m_children[idx];
   }
 
   inline void setChild(uint32_t idx, ChildType* child) {
+    BRIDGE_PARENT_DEVICE_LOCKGUARD();
     assert(idx < m_children.size() && "Child index overrun!");
     assert(m_children[idx] == nullptr && "Child object may be only set once!");
 

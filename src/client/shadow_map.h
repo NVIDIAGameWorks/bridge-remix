@@ -26,50 +26,19 @@
 
 using ShadowMap = std::unordered_map<uintptr_t, IUnknown*>;
 extern ShadowMap gShadowMap;
+extern std::mutex gShadowMapMutex;
+
+#define SHADOW_MAP_LOCKGUARD \
+   std::scoped_lock lockObj(gShadowMapMutex); \
 
 class BaseDirect3DDevice9Ex_LSS;
 
 template<class WrapperType>
 static WrapperType* trackWrapper(WrapperType* const pLss) {
-  gShadowMap[pLss->getId()] = pLss;
-  return pLss;
-}
-
-template<class WrapperType, class ParentType>
-static WrapperType* getOrTrackWrapper(void* instance,
-                                      BaseDirect3DDevice9Ex_LSS* const pDevice,
-                                      ParentType* const pParent) {
-  auto* const pD3D = (IUnknown*) instance;
-  WrapperType* pLss;
-  if (gShadowMap.count(pD3D) == 0 || pD3D == nullptr) {
-    if constexpr (std::is_same_v<ParentType, void>) {
-      pLss = new WrapperType(pD3D, pDevice);
-    } else {
-      pLss = new WrapperType(pD3D, pDevice, pParent);
-    }
-
-    gShadowMap[pLss->getD3DObj()] = pLss;
-    return pLss;
+  {
+    SHADOW_MAP_LOCKGUARD;
+    gShadowMap[pLss->getId()] = pLss;
   }
-  pLss = bridge_cast<WrapperType*>(gShadowMap[pD3D]);
-  pLss->AddRef();
-  return pLss;
-}
 
-template<class WrapperType>
-static WrapperType* getOrTrackWrapper(void* instance,
-                                      BaseDirect3DDevice9Ex_LSS* const pDevice) {
-  return getOrTrackWrapper<WrapperType, void>(instance, pDevice, nullptr);
-}
-
-template<class WrapperType>
-static WrapperType* getWrapperOnly(void* instance,
-                                   BaseDirect3DDevice9Ex_LSS* const pDevice) {
-  auto* const pD3D = (IUnknown*) instance;
-  if (gShadowMap.count(pD3D) == 0)
-    return nullptr;
-
-  WrapperType* pLss = bridge_cast<WrapperType*>(gShadowMap[pD3D]);
-  pLss->AddRef();
   return pLss;
 }

@@ -33,9 +33,6 @@
 
 extern bool gbBridgeRunning;
 
-#define BRIDGE_COMMAND_LOCKGUARD(currentMutex) \
-   std::scoped_lock lockObj(currentMutex); \
-
 #define WAIT_FOR_SERVER_RESPONSE(func, value, uidVal) \
   { \
     const uint32_t timeoutMs = GlobalOptions::getAckTimeout(); \

@@ -61,7 +61,6 @@ ULONG Direct3DVolumeTexture9_LSS::Release() {
 }
 
 void Direct3DVolumeTexture9_LSS::onDestroy() {
-  BRIDGE_PARENT_DEVICE_LOCKGUARD();
   ClientMessage c(Commands::IDirect3DVolumeTexture9_Destroy, getId());
 }
 
@@ -86,7 +85,6 @@ HRESULT Direct3DVolumeTexture9_LSS::GetLevelDesc(UINT Level, D3DVOLUME_DESC* pDe
   pDesc->Depth = std::max(1u, desc.Depth >> Level);
 
   if (GlobalOptions::getSendReadOnlyCalls()) {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
     ClientMessage c(Commands::IDirect3DVolumeTexture9_GetLevelDesc, getId());
     c.send_data(sizeof(D3DVOLUME_DESC), pDesc);
     c.send_data(Level);
@@ -103,6 +101,7 @@ HRESULT Direct3DVolumeTexture9_LSS::GetVolumeLevel(UINT Level, IDirect3DVolume9*
   if (ppVolumeLevel == nullptr) {
     return D3DERR_INVALIDCALL;
   }
+
   if (auto pVolume = getChild(Level)) {
     pVolume->AddRef();
     *ppVolumeLevel = pVolume;
@@ -110,13 +109,17 @@ HRESULT Direct3DVolumeTexture9_LSS::GetVolumeLevel(UINT Level, IDirect3DVolume9*
   }
 
   {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
+    Direct3DVolume9_LSS* pLssVolume = nullptr;
 
-    D3DVOLUME_DESC desc;
-    GetLevelDesc(Level, &desc);
+    {
+      BRIDGE_PARENT_DEVICE_LOCKGUARD();
 
-    auto* const pLssVolume = trackWrapper(new Direct3DVolume9_LSS(m_pDevice, this, desc));
-    setChild(Level, pLssVolume);
+      D3DVOLUME_DESC desc;
+      GetLevelDesc(Level, &desc);
+
+      pLssVolume = trackWrapper(new Direct3DVolume9_LSS(m_pDevice, this, desc));
+      setChild(Level, pLssVolume);
+    }
 
     (*ppVolumeLevel) = pLssVolume;
 
@@ -134,11 +137,12 @@ HRESULT Direct3DVolumeTexture9_LSS::LockBox(UINT Level, D3DLOCKED_BOX* pLockedVo
 
   if (Level >= getDesc().Levels)
     return D3DERR_INVALIDCALL;
-
+  
   // Fast path: fetch and use child volume if it was previously initialized
   if (auto pVolume = getChild(Level)) {
     return pVolume->LockBox(pLockedVolume, pBox, Flags);
   }
+  
   // Child volume was not initialized - use getter and initialize child in the process
   IDirect3DVolume9* pVolume;
   HRESULT hresult = GetVolumeLevel(Level, &pVolume);
@@ -161,13 +165,13 @@ HRESULT Direct3DVolumeTexture9_LSS::UnlockBox(UINT Level) {
   if (auto pVolume = getChild(Level)) {
     return pVolume->UnlockBox();
   }
+  
   return D3DERR_INVALIDCALL;
 }
 
 HRESULT Direct3DVolumeTexture9_LSS::AddDirtyBox(CONST D3DBOX* pDirtyBox) {
   LogFunctionCall();
   {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
     ClientMessage c(Commands::IDirect3DVolumeTexture9_AddDirtyBox, getId());
     c.send_data(sizeof(D3DBOX), (void*) pDirtyBox);
   }

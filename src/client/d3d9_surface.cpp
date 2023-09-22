@@ -84,8 +84,6 @@ ULONG Direct3DSurface9_LSS::Release() {
 }
 
 void Direct3DSurface9_LSS::onDestroy() {
-  BRIDGE_PARENT_DEVICE_LOCKGUARD();
-
   // The standalone surfaces use normal destroy command, however child surfaces
   // are completely owned and managed by their parent container, and so only need
   // to be unlinked from x64 counterpart to prevent hash collisions at server side.
@@ -112,7 +110,6 @@ HRESULT Direct3DSurface9_LSS::GetDesc(D3DSURFACE_DESC* pDesc) {
   (*pDesc) = m_desc;
 
   if (GlobalOptions::getSendReadOnlyCalls()) {
-    BRIDGE_PARENT_DEVICE_LOCKGUARD();
     // Add surface handle
     ClientMessage c(Commands::IDirect3DSurface9_GetDesc, getId());
     c.send_data(sizeof(D3DSURFACE_DESC), pDesc);

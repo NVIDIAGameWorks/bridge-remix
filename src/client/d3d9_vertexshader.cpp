@@ -54,7 +54,6 @@ ULONG Direct3DVertexShader9_LSS::Release() {
 }
 
 void Direct3DVertexShader9_LSS::onDestroy() {
-  BRIDGE_PARENT_DEVICE_LOCKGUARD();
   ClientMessage { Commands::IDirect3DVertexShader9_Destroy, getId() };
 }
 

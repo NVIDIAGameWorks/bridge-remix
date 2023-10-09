@@ -21,6 +21,7 @@
  */
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
+#include <strsafe.h>
 
 #include "detours.h"
 #include "d3d9_util.h"
@@ -510,6 +511,14 @@ protected:
     API_DETACH(GetDeviceData);
     API_DETACH(SetCooperativeLevel);
   }
+
+  static std::string getSystemLibraryPath(const char* name) {
+    char szSystemLib[1024];
+    GetSystemDirectoryA(szSystemLib, sizeof(szSystemLib));
+    StringCchCatA(szSystemLib, sizeof(szSystemLib), "\\");
+    StringCchCatA(szSystemLib, sizeof(szSystemLib), name);
+    return szSystemLib;
+  }
 };
 
 class DirectInput8Hook: public DirectInputHookBase<8> {
@@ -531,7 +540,7 @@ public:
     auto OrigLoadLibraryA = DetourRetrieveOriginal(LoadLibraryA);
     auto OrigGetProcAddress = DetourRetrieveOriginal(GetProcAddress);
 
-    HMODULE hdi8 = OrigLoadLibraryA("dinput8");
+    HMODULE hdi8 = OrigLoadLibraryA(getSystemLibraryPath("dinput8").c_str());
 
     OrigDirectInput8Create = reinterpret_cast<decltype(OrigDirectInput8Create)>(
       OrigGetProcAddress(hdi8, "DirectInput8Create"));
@@ -639,7 +648,7 @@ public:
     auto OrigLoadLibraryA = DetourRetrieveOriginal(LoadLibraryA);
     auto OrigGetProcAddress = DetourRetrieveOriginal(GetProcAddress);
 
-    HMODULE hdi = OrigLoadLibraryA("dinput");
+    HMODULE hdi = OrigLoadLibraryA(getSystemLibraryPath("dinput").c_str());
 
     OrigDirectInputCreateA = reinterpret_cast<decltype(OrigDirectInputCreateA)>(
       OrigGetProcAddress(hdi, "DirectInputCreateA"));

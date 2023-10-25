@@ -145,6 +145,7 @@ void InitServer() {
   cmdSS << gRemixFolder;
   cmdSS << ".trex/NvRemixBridge.exe";
   cmdSS << " " << gUniqueIdentifier.toString();
+  cmdSS << " " << BRIDGE_VERSION;
   cmdSS << " " << std::string(GetCommandLineA());
   const std::string command = cmdSS.str();
   gpServer = new Process(command.c_str(), OnServerExited);

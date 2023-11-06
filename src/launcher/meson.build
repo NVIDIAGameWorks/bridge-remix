@@ -40,6 +40,7 @@ build_by_default    : (cpu_family == 'x86') ? true : false,
 dependencies        : [ lib_shlwapi ],
 include_directories : [ detours_include_path, util_include_path ])
 
+
 if cpu_family == 'x86'
 if build_os == 'windows'
   custom_target('copy_launcher_to_output',

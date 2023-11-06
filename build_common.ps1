@@ -108,18 +108,7 @@ function PerformBuild {
 	Copy-Item "Directory.Build.Props" -Destination $BuildDir
 	
 	Push-Location $BuildDir
-	if ( $BuildTarget ) {
-	    & meson compile unit_tests
-	}
-	else {
-		# The x86 solution platform is called Win32 so we have to fix up the parameter
-		If ($Platform -match "x86") {
-			& "msbuild"  @('bridge.sln', '/t:Build', '/p:Platform="Win32"', '/p:BuildProjectReferences=true', '/m', '/p:BuildInParallel=true')
-		}
-		Else {
-			& "msbuild"  @('bridge.sln', '/t:Build', '/p:Platform="x64"', '/p:BuildProjectReferences=true', '/m', '/p:BuildInParallel=true')
-		}
-	}
+	    & meson compile 
 	Pop-Location
 
 	if ( $LASTEXITCODE -ne 0 ) {

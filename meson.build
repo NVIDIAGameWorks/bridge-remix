@@ -30,7 +30,7 @@ project(
 python_interpreter = find_program('python3', 'python')
 
 global_src_root_norm = meson.global_source_root().replace('\\', '/')
-output_dir = meson.global_source_root() + '/_output/'
+output_dir = global_src_root_norm + '/_output/'
 
 cpu_family = target_machine.cpu_family()
 build_os = build_machine.system()
@@ -45,10 +45,11 @@ elif build_os == 'linux'
 else
   script_extension = ''
 endif
-copy_script_path = meson.global_source_root() + '/scripts-common/copy' + script_extension
-recursive_copy_path = meson.global_source_root() + '/scripts-common/recursive_copy' + script_extension
+copy_script_path = global_src_root_norm + '/scripts-common/copy' + script_extension
+recursive_copy_path = global_src_root_norm + '/scripts-common/recursive_copy' + script_extension
 
 add_project_arguments('-DNOMINMAX', language : 'cpp')
+vs_project_defines = 'NOMINMAX;'
 
 if get_option('buildtype') != 'debug'
   add_project_arguments('-DNDEBUG', language: 'cpp')
@@ -57,7 +58,16 @@ endif
 bridge_compiler = meson.get_compiler('cpp')
 bridge_is_msvc = bridge_compiler.get_id() == 'msvc'
 
-useDLSS = true
+# workarounds for our strange symbol name differences when embedding MDL
+add_global_arguments('/DBUILD_NINJA=1', language : 'cpp')
+vs_project_defines += 'BUILD_NINJA=1;'
+
+
+# Set source paths base on the project root as a build-time define
+# in case it is needed at build time for a local build.
+
+add_global_arguments('/DBUILD_SOURCE_ROOT="' + global_src_root_norm + '/"', language : 'cpp')
+vs_project_defines += 'BUILD_SOURCE_ROOT=' + global_src_root_norm + '/src/client/"' + ';'
 
 if bridge_is_msvc
   add_global_arguments('/MP', language : 'cpp')
@@ -78,8 +88,10 @@ endif
 
 if get_option('enable_tracy')
   add_project_arguments('-DTRACY_ENABLE', language : 'cpp')
+  vs_project_defines += 'TRACY_ENABLE;'
   # only enable profiling when the profiler-application is connected
   add_project_arguments('-DTRACY_ON_DEMAND', language : 'cpp')
+  vs_project_defines += 'TRACY_ON_DEMAND;'
 endif
 
 if not bridge_is_msvc
@@ -237,4 +249,77 @@ enable_tests = get_option('enable_tests')
 
 if enable_tests
   subdir('test')
+endif
+
+vs_gen_cmdline = [ vs_project_defines ]
+
+# add data from gametargets.conf to bridge_copy_targets
+game_targets_run = run_command(python_interpreter,
+                             meson.global_source_root() + '\\vsgen\\get_game_target_list.py')
+game_targets = game_targets_run.stdout().strip()
+
+copy_targets = {}
+
+if game_targets != ''
+    foreach t : game_targets.split('\n')
+      s = t.split(',')
+      key = s[0]
+      target_suffix = key.underscorify()
+      output_path = s[1]
+      
+      copy_targets += { key : { 'output_path': output_path, 'target_suffix': target_suffix } }
+      
+      # note: this doesn't go into the VS generator command line, gametargets.conf is read from python directly
+    endforeach
+endif
+
+foreach key : copy_targets.keys()
+    target_suffix = copy_targets[key]['target_suffix']
+    output_path = copy_targets[key]['output_path']
+    # the copy target is special
+    # if we use custom_target for the d3d9 DLL, meson generates a target that does nothing in ninja
+    # as a workaround, we do the copy as part of the test_* target itself  
+    
+    if cpu_family == 'x86'
+        run_target('copy_' + target_suffix,
+          depends: [ d3d9_dll ],
+          command : [copy_script_path,
+                    meson.current_build_dir().replace('\\', '/') + '/src/client',
+                    output_path,
+                    'd3d9*'])
+        run_target('copy_' + target_suffix + '_launcher',
+          depends: [ launcher_exe ],
+          command : [copy_script_path,
+                    meson.current_build_dir().replace('\\', '/') + '/src/launcher',
+                    output_path,
+                    'NvRemixLauncher32*'])
+    else
+        run_target('copy_' + target_suffix + '_server',
+          depends: [ server_exe ],
+          command : [copy_script_path,
+                    meson.current_build_dir().replace('\\', '/') + '/src/server',
+                    output_path + '/.trex',
+                    'NvRemixBridge*'])
+    endif
+endforeach
+
+# Building project files after builds for x86_64 and x86 platforms are created, here builds for x86 platform are created after x86_64
+if cpu_family == 'x86'
+    
+	# generate VS project files for ninja
+	# note: this writes to <source root>/_vs, which is outside the build directory
+	vsproj = run_command(python_interpreter,
+					  meson.global_source_root() + '\\vsgen\\generate_vs_project_files.py',
+					  vs_gen_cmdline,
+					  check: false)
+
+	if vsproj.stdout().strip() != ''
+	message(vsproj.stdout().strip())
+	endif
+	if vsproj.stderr().strip() != ''
+	message(vsproj.stderr().strip())
+	endif
+	if vsproj.returncode() != 0
+	error('generate_vs_project_files failed')
+	endif
 endif

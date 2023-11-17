@@ -2868,11 +2868,15 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
   int argCount;
   LPWSTR* argList = CommandLineToArgvW(pCmdLine, &argCount);
-  BRIDGE_ASSERT_LOG((argCount >= 1), "Command line argument count received to launch server is not as expected");
+  BRIDGE_ASSERT_LOG((argCount >= 2), "Command line argument count received to launch server is not as expected");
   if (gUniqueIdentifier.setGuid(&argList[0])) {
     Logger::info("Launched server with GUID " + gUniqueIdentifier.toString());
   } else {
     Logger::err("Server was invoked with invalid GUID! Unable to establish bridge, exiting...");
+    return 1;
+  }
+  if (wcscmp(argList[1], BRIDGE_VERSION_W) != 0) {
+    Logger::err(format_string("Client (%s) and server (%s) version numbers do not match. Mixed version runtime execution is currently not supported! Exiting...", argList[1], BRIDGE_VERSION));
     return 1;
   }
   LocalFree(argList);

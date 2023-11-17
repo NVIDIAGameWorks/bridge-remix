@@ -1,5 +1,5 @@
-#
-# Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+#############################################################################
+# Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -18,32 +18,13 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
 # FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
-#
+#############################################################################
 
-.   ".\build_common.ps1"
+import os
+from vsutil import *
 
-# It's possible to build specific parts of the REMIX_BRIDGE codebase like so:'
-# powershell -command "& { . .\build_bridge.ps1 PerformBuild -BuildFlavour debugoptimized -BuildSubDir _CompTest }"
+os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
-function Build {
-	param(
-		[Parameter(Mandatory)]
-		[string]$Platform,
-
-		[Parameter(Mandatory)]
-		[string]$BuildFlavour,
-		
-		[Parameter(Mandatory)]
-		[string]$BuildSubDir,
-		
-		[string]$BuildTarget
-	)
-
-	SetupVS -Platform $Platform
-	
-	if ($BuildTarget) {
-		PerformBuild -Backend ninja -Platform $Platform -BuildFlavour $BuildFlavour -BuildSubDir $BuildSubDir -BuildTarget $BuildTarget
-	} else {
-		PerformBuild -Backend ninja -Platform $Platform -BuildFlavour $BuildFlavour -BuildSubDir $BuildSubDir 
-	}
-}
+targets = load_game_targets()
+for g in targets:
+    print(g + "," + targets[g]['outputdir'])

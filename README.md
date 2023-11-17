@@ -8,17 +8,21 @@ The NVIDIA RTX Remix project allows bringing high quality pathtraced rendering, 
 
 # Prerequisites
 
-All that is required to build Remix is a computer running an up-to-date version of Microsoft Windows 10 or 11 as well as [Microsoft Visual Studio](https://visualstudio.microsoft.com/).
-
-The free Commmunity Edition of Visual Studio will work fine.
-
-> **NOTE:** Make sure to install the `MSVC v142 - VS 2019 C++ x64/x86 build tools` from the _Individual Components_ list in the Visual Studio Installer interface. NVIDIA RTX Remix has only been tested with the Visual Studio 2019 build tools, and newer compiler versions may or may not work and/or lead to unexpected results/issues.
+1. Microsoft Windows 10 or 11
+2. Microsoft [Visual Studio](https://visualstudio.microsoft.com/vs/older-downloads/)
+    - Visual Studio 2019 is tested.
+    - Visual Studio 2022 should also work with MSVC v142 build tools installed.
+    - The free Commmunity Edition of Visual Studio will work fine.
+    > **NOTE:** Make sure to install the `MSVC v142 - VS 2019 C++ x64/x86 build tools` from the _Individual Components_ list in the Visual Studio Installer interface. NVIDIA RTX Remix has only been tested with the Visual Studio 2019 build tools, and newer compiler versions may or may not work and/or lead to unexpected results/issues.
+3. [Meson](https://mesonbuild.com/) - v0.61.4 has been tested, latest version should also work fine.
+    - Follow [instructions](https://mesonbuild.com/SimpleStart.html#installing-meson) on how to install and reboot the PC before moving on (Meson will indicate as much)
+4. [Python](https://www.python.org/downloads/) - version 3.9 or newer
 
 # How to build
 
-To generate the initial Visual Studio solutions and build, run `build_bridge_all.bat`, which will generate four separate solutions for the debug/release configurations for both 32 and 64 bit builds.
+To generate the initial Visual Studio solutions and build, run `build_bridge_all.bat`, which will generate build directories for the debug/release configurations for both 32 and 64 bit platform.
 
-You can also open and rebuild the projects/solutions individually from the different `_comp<config>_<platform>` directories.
+You can also open and rebuild the projects/solutions individually for different configurations from project files generated under the `_vs` subdirectory which will be added under the root directory.
 
 > **NOTE:** To get a full Remix Bridge build you will need to open and compile both the x86 as well as the x64 solution, because the bridge client component is built by the x86 solution, and the bridge server component is built by the x64 solution.
 
@@ -27,6 +31,8 @@ The build output from the x86 solution goes into a folder called `_output` which
 The build output from the x64 solution goes into a folder called `.trex` which is located inside the `_output` directory in the repo root.
 
 > **NOTE:** Technically the Remix Bridge can be used on a game by itself without the Remix Runtime components from the `dxvk-remix` repo, but when used that way it will fall back onto the x64 system DirectX9 runtime that is installed in Windows and not be capable of performing any raytracing or asset replacements.
+
+> **NOTE:** Prior to building bridge it is recommended to delete any build directory that was previosly created with prefix `_comp..` and `_vs` directory under root directory especially if this is your first time building bridge with ninja backend build system. 
 
 # How to run
 
@@ -46,19 +52,20 @@ An alternative approach to loading the Remix Bridge `d3d9.dll` into a game would
 
 Run the launcher without any parameters to see the list of available options that can be used.
 
+## Deploy built binaries to a game 
+1. First time only: copy **gametargets.example.conf** to **gametargets.conf** in the project root
+
+2. Update paths in the **gametargets.conf** for your game. Follow example in the **gametargets.example.conf**. Make sure to remove "#" from the start of all three lines. Configurations for multiple games can be added at once.
+
+3. Open and re-save top-level **meson.build** file (i.e. via notepad) to update its time stamp, and rerun the build. This will trigger a full meson script run which will generate a project within the Visual Studio solution file and deploy built binaries into the games directories specified in **gametargets.conf**
+
 ## Visual Studio debugging
 
 The intended way to use these components is to use the 32-bit `d3d9.dll` output compiled by the client `d3d9` project from the x86 solution and the 64-bit server dll compiled by the server `NvRemixBridge` project in the x64 solution. If the file exists inside the `.trex` directory, the server bridge component will load the 64-bit Remix Runtime (`dxvk-remix`) `d3d9.dll` to pass the rendering commands and results to the Vulkan pathtracing renderer and back, but by default it loads the regular system DirectX9 dll that is installed in the default Windows system directory.
 
 > **NOTE:** The x86 solutions contain both the `client` and `server` projects, but not the copy job for the `server` project, because the `server` output comes from the x64 solution, which only contains the `server` project and copy job for it. The `server` project was left in the x86 solution only to make cross-process debugging easier so that Visual Studio picks up the source files correctly when doing child process debugging.
 
-Files are copied to `_output` after building. During development it is helpful to create a symbolic link in Windows that reroutes the `_output` directory to a different path, for example directly into a game directory. The link can be created on the command line with
-
-```
-> mklink /j _output <path to game directory>
-```
-
-If you then enter the game executable in the `Command` field and the game path as the `Working Directory` property in the `d3d9` project settings on the `Debugging` property page, then it makes it easier to launch the game and debug Remix Bridge directly from Visual Studio.
+If you enter the game executable in the `Command` field and the game path as the `Working Directory` property in the `d3d9` project settings on the `Debugging` property page, then it makes it easier to launch the game and debug Remix Bridge directly from Visual Studio.
 
 > **NOTE:** It is recommended to download the VS extension to help debugging/attaching to child processes (such as the server NvRemixBridge component)
 >
@@ -93,3 +100,4 @@ The easiest way to get a complete binary package is by downloading one of the re
 - Some comments on code organization:
   - On the client side the implementation code is split over separate files matching the names of the D3D9 API interfaces, but all the headers are consolidated into a single file `d3d9_lss.h`.
   - On the server side almost all code is currently in `main.cpp` and may get refactored into separate files for each interface similar to the client at some point. It's a long file with a very long `switch` statement, but since a lot of the interface methods are very similar this also makes it easier to navigate back and forth between related functions without having to jump between multiple files. It probably makes most sense to reorganize once we have reached a certain amount of completeness and stability, so refactoring doesn't lead to a lot of merge conflicts with other changes being done in parallel.
+> **NOTE:** After each session, the tail end of the client log will contain previously recieved and processed d3d9 commands from both client and server side. In case of crash on the client side, we can find this information in the server logs.

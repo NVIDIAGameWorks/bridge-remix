@@ -51,6 +51,7 @@ dependencies        : [ thread_dep, util_dep, lib_version, tracy_dep ],
 include_directories : [ bridge_include_path, util_include_path ],
 win_subsystem       : 'windows')
 
+
 server_output_dir = output_dir + '.trex'
 
 if cpu_family == 'x86_64'

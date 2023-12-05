@@ -2671,7 +2671,7 @@ void ProcessDeviceCommandQueue() {
     if (*DeviceBridge::getReaderChannel().clientDataExpectedPos != -1) {
       Logger::warn("Data Queue override condition triggered");
       // Check if server needs to complete a loop and the position was read
-      if (*DeviceBridge::getReaderChannel().serverDataPos > *DeviceBridge::getReaderChannel().clientDataExpectedPos && !DeviceBridge::getReaderChannel().serverResetPosRequired) {
+      if (*DeviceBridge::getReaderChannel().serverDataPos > *DeviceBridge::getReaderChannel().clientDataExpectedPos && !(*DeviceBridge::getReaderChannel().serverResetPosRequired)) {
         DeviceBridge::getReaderChannel().dataSemaphore->release(1);
         *DeviceBridge::getReaderChannel().clientDataExpectedPos = -1;
         Logger::info("DataQueue override condition resolved");

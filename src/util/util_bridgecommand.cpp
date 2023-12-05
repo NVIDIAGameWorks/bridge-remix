@@ -80,26 +80,22 @@ DECL_BRIDGE_FUNC(void, syncDataQueue, size_t expectedMemUsage, bool posResetOnLa
     * 2. client > server, expectedClient >= server, expectedClient < client
     */
   bool overrideConditionMet = false;
-  if (currClientDataPos < serverCount && expectedClientDataPos >= serverCount) {
+  if (expectedClientDataPos >= serverCount &&
+      ((s_curBatchStartPos < serverCount)
+       || (s_curBatchStartPos > serverCount && expectedClientDataPos < s_curBatchStartPos)
+       || ((s_curBatchStartPos <= serverCount) && *s_pWriterChannel->serverResetPosRequired))) {
     // Below variable is set to let the server know that a particular position
     // in the queue not yet accessed by it is going to be used
-    *s_pWriterChannel->clientDataExpectedPos = currClientDataPos - 1;
-    overrideConditionMet = true;
-  } else if (currClientDataPos > serverCount && expectedClientDataPos >= serverCount && expectedClientDataPos < currClientDataPos) {
-    // Below variable is set to let server know that a particular position
-    // in the queue not yet accessed by it is going to be used
-    *s_pWriterChannel->clientDataExpectedPos = expectedClientDataPos;
+    *s_pWriterChannel->clientDataExpectedPos = s_curBatchStartPos - 1;
     overrideConditionMet = true;
   }
 
   if (overrideConditionMet) {
     Logger::warn("Data Queue override condition triggered");
-    if (s_pWriterChannel->pbCmdInProgress->load() &&
-        (s_curBatchStartPos <= *s_pWriterChannel->clientDataExpectedPos)) {
+    // Check to see if there is even enough space to ever succeed in pushing all the data
+    if ((expectedMemUsage + (currClientDataPos >= s_curBatchStartPos ? currClientDataPos - s_curBatchStartPos : currClientDataPos + totalSize - s_curBatchStartPos)) > totalSize) {
       Logger::err("Command's data batch size is too large and override could not be prevented!");
-      *s_pWriterChannel->clientDataExpectedPos = -1;
-      *s_pWriterChannel->serverResetPosRequired = false;
-      return;
+      throw std::exception("Command's data batch size is too large and override could not be prevented!");
     }
     // Wait for the server to access the data at the above postion
     const auto maxRetries = GlobalOptions::getCommandRetries();

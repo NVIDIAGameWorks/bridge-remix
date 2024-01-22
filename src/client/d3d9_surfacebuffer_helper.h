@@ -31,37 +31,39 @@ using namespace bridge_util;
 
 static HRESULT copyServerSurfaceRawData(Direct3DSurface9_LSS* const pLssSurface, UID uid) {
   // Obtaining raw surface data buffer from server
+  HRESULT res = D3DERR_INVALIDCALL;
   const uint32_t timeoutMs = GlobalOptions::getAckTimeout();
-  if (Result::Success != DeviceBridge::waitForCommandAndDiscard(Commands::Bridge_Response, timeoutMs)) {
+  if (Result::Success != DeviceBridge::waitForCommand(Commands::Bridge_Response, timeoutMs, nullptr, true, uid)) {
     Logger::err("getServerSurfaceBufferData() failed with: no response from server.");
-    return D3DERR_INVALIDCALL;
-  }
-
-  HRESULT res = (HRESULT)DeviceBridge::get_data();
-  if (!SUCCEEDED(res)) {
     return res;
   }
+  else
+  {
+      res = (HRESULT)DeviceBridge::get_data();
+  }      
 
-  uint32_t width = (uint32_t) DeviceBridge::get_data();
-  uint32_t height = (uint32_t) DeviceBridge::get_data();
-  const D3DFORMAT format = (D3DFORMAT) DeviceBridge::get_data();
-  void* pData = NULL;
-  size_t pulledSize = DeviceBridge::get_data(&pData);
+  if (SUCCEEDED(res)) {
+    uint32_t width = (uint32_t) DeviceBridge::get_data();
+    uint32_t height = (uint32_t) DeviceBridge::get_data();
+    const D3DFORMAT format = (D3DFORMAT) DeviceBridge::get_data();
+    void* pData = NULL;
+    size_t pulledSize = DeviceBridge::get_data(&pData);
 
-  // Copy data into a surface
-  const size_t rowSize = bridge_util::calcRowSize(width, (D3DFORMAT) format);
-  const size_t numRows = bridge_util::calcStride(height, (D3DFORMAT) format);
-  assert(pulledSize == numRows * rowSize);
+    // Copy data into a surface
+    const size_t rowSize = bridge_util::calcRowSize(width, (D3DFORMAT) format);
+    const size_t numRows = bridge_util::calcStride(height, (D3DFORMAT) format);
+    assert(pulledSize == numRows * rowSize);
 
-  // Copying server side render target buffer to client surface
-  D3DLOCKED_RECT lockedRect;
-  res = pLssSurface->LockRect(&lockedRect, NULL, D3DLOCK_DISCARD);
-  if (S_OK == res) {
-    FOR_EACH_RECT_ROW(lockedRect, height, format,
-      memcpy(ptr, (PBYTE) pData + y * rowSize, rowSize);
-    );
-    res = pLssSurface->UnlockRect();
+    // Copying server side render target buffer to client surface
+    D3DLOCKED_RECT lockedRect;
+    res = pLssSurface->LockRect(&lockedRect, NULL, D3DLOCK_DISCARD);
+    if (S_OK == res) {
+      FOR_EACH_RECT_ROW(lockedRect, height, format,
+        memcpy(ptr, (PBYTE) pData + y * rowSize, rowSize);
+      );
+      res = pLssSurface->UnlockRect();
+    }
   }
-
+  DeviceBridge::pop_front();
   return res;
 }

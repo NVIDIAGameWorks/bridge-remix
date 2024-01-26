@@ -24,6 +24,8 @@ extern std::unordered_map<uint32_t, IDirect3DVertexShader9*> gpD3DVertexShaders;
 extern std::unordered_map<uint32_t, IDirect3DPixelShader9*> gpD3DPixelShaders;
 extern std::unordered_map<uint32_t, IDirect3DSwapChain9*> gpD3DSwapChains;
 
+extern std::mutex gLock;
+
 #define PULL(type, name) const auto& name = (type)ModuleBridge::get_data()
 #define PULL_I(name) PULL(INT, name)
 #define PULL_U(name) PULL(UINT, name)
@@ -84,6 +86,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
     Commands::Bridge_Any, 0, pbSignalEnd))) {
     const Header rpcHeader = ModuleBridge::pop_front();
     PULL_U(currentUID);
+    std::unique_lock<std::mutex> lock(gLock);
     // The mother of all switch statements - every call in the D3D9 interface is mapped here...
     switch (rpcHeader.command) {
       /*

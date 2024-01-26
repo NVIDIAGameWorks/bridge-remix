@@ -118,6 +118,8 @@ std::unordered_map<uint32_t, IDirect3DPixelShader9*> gpD3DPixelShaders;
 std::unordered_map<uint32_t, IDirect3DSwapChain9*> gpD3DSwapChains;
 std::unordered_map<uint32_t, IDirect3DQuery9*> gpD3DQuery;
 
+std::mutex gLock;
+
 // Global state
 bool gbBridgeRunning = true;
 HANDLE hWait;
@@ -270,6 +272,7 @@ void ProcessDeviceCommandQueue() {
         ZoneName(commandStr.c_str(), commandStr.size());
       }
       PULL_U(currentUID);
+      std::unique_lock<std::mutex> lock(gLock);
       // The mother of all switch statements - every call in the D3D9 interface is mapped here...
       switch (rpcHeader.command) {
       case IDirect3DDevice9Ex_GetDisplayModeEx:
@@ -2950,7 +2953,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
   Logger::info("Handshake completed! Now waiting for incoming commands...");
 
   std::atomic<bool> bSignalDone(false);
-  auto moduleCmdProcessingThread = std::thread([&](){
+  auto moduleCmdProcessingThread = std::thread([&]() {
     processModuleCommandQueue(&bSignalDone);
   });
   // Process device commands

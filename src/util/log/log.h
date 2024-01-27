@@ -59,6 +59,8 @@ namespace bridge_util {
     static void set_loglevel(const LogLevel level);
 
   private:
+    inline static Logger* logger = nullptr;
+
     Logger(const LogLevel logLevel, void* hModuleLogOwner);
     ~Logger();
 

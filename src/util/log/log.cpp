@@ -55,13 +55,18 @@ namespace bridge_util {
 #endif
   }
 
+  inline static Logger* logger = nullptr;
+
   void Logger::init(const LogLevel logLevel, void* hModuleLogOwner) {
+    logger = nullptr;
     get(logLevel, hModuleLogOwner);
   }
 
   Logger& Logger::get(const LogLevel logLevel, void* hModuleLogOwner) {
-    static Logger logger(logLevel, hModuleLogOwner);
-    return logger;
+    if (logger == nullptr) {
+      logger = new Logger(logLevel, hModuleLogOwner);
+    }
+    return *logger;
   }
 
   Logger::Logger(const LogLevel log_level, void* hModuleLogOwner)

@@ -54,9 +54,12 @@ public:
   }
 
 private:
+  inline static BridgeState* inst = nullptr;
   static BridgeState& get() {
-    static BridgeState inst;
-    return inst;
+    if (inst == nullptr) {
+      inst = new BridgeState;
+    }
+    return *inst;
   }
 
   BridgeState() {

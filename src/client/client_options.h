@@ -30,51 +30,43 @@
 #include <d3d9.h>
 
 namespace ClientOptions {
+  static const bool useVanillaDxvk = bridge_util::Config::getOption<bool>("client.useVanillaDxvk", false);
   inline bool getUseVanillaDxvk() {
-    static const bool useVanillaDxvk =
-      bridge_util::Config::getOption<bool>("client.useVanillaDxvk", false);
     return useVanillaDxvk;
   }
 
+  static const bool setExceptionHandler = bridge_util::Config::getOption<bool>("client.setExceptionHandler", false);
   inline bool getSetExceptionHandler() {
-    static const bool setExceptionHandler =
-      bridge_util::Config::getOption<bool>("client.setExceptionHandler", false);
     return setExceptionHandler;
   }
 
+  static const bool hookMessagePump = bridge_util::Config::getOption<bool>("client.hookMessagePump", false);
   inline bool getHookMessagePump() {
-    static const bool hookMessagePump =
-      bridge_util::Config::getOption<bool>("client.hookMessagePump", false);
     return hookMessagePump;
   }
 
+  static const bool overrideCustomWinHooks = bridge_util::Config::getOption<bool>("client.overrideCustomWinHooks", false);
   inline bool getOverrideCustomWinHooks() {
-    static const bool overrideCustomWinHooks =
-      bridge_util::Config::getOption<bool>("client.overrideCustomWinHooks", false);
     return overrideCustomWinHooks;
   }
 
+  static const bool forwardDirectInputMessages = bridge_util::Config::getOption<bool>("client.DirectInput.forwardMessages", true);
   inline bool getForwardDirectInputMessages() {
-    static const bool forwardDirectInputMessages =
-      bridge_util::Config::getOption<bool>("client.DirectInput.forwardMessages", true);
     return forwardDirectInputMessages;
   }
 
+  static const bool disableExclusiveInput = bridge_util::Config::getOption<bool>("client.DirectInput.disableExclusiveInput", false);
   inline bool getDisableExclusiveInput() {
-    static const bool disableExclusiveInput =
-      bridge_util::Config::getOption<bool>("client.DirectInput.disableExclusiveInput", false);
     return disableExclusiveInput;
   }
 
+  static const bool forceWindowed = bridge_util::Config::getOption<bool>("client.forceWindowed", false);
   inline bool getForceWindowed() {
-    static const bool forceWindowed =
-      bridge_util::Config::getOption<bool>("client.forceWindowed", false);
     return forceWindowed;
   }
 
+  static const bool enableDpiAwareness = bridge_util::Config::getOption<bool>("client.enableDpiAwareness", true);
   inline bool getEnableDpiAwareness() {
-    static const bool enableDpiAwareness =
-      bridge_util::Config::getOption<bool>("client.enableDpiAwareness", true);
     return enableDpiAwareness;
   }
 
@@ -82,9 +74,8 @@ namespace ClientOptions {
   // and redundant copy will be avioded. However, because D3D applications are not obliged
   // to write the entire locked region this optimization is NOT considered safe and may
   // not always work.
+  static const bool optimizedDynamicLock = bridge_util::Config::getOption<bool>("client.optimizedDynamicLock", false);
   inline bool getOptimizedDynamicLock() {
-    static const bool optimizedDynamicLock =
-      bridge_util::Config::getOption<bool>("client.optimizedDynamicLock", false);
     return optimizedDynamicLock;
   }
 }

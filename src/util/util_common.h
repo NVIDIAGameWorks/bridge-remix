@@ -141,7 +141,7 @@ namespace caps {
 
   static const uint32_t MaxTexturesPS = 16;
 
-  static const uint32_t MinSurfacePitch = 8;
+  static const uint32_t MinSurfacePitch = sizeof(size_t);
 }
 
 // Dynamic cast has RTTI checks - which are more expensive at runtime (hence debug only) but much better at catching bugs

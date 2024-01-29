@@ -65,6 +65,13 @@ using namespace bridge_util;
     } \
   } 
 
+#define SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, uid) { \
+    if (GlobalOptions::getSendCreateFunctionServerResponses() || GlobalOptions::getSendAllServerResponses()) { \
+      ServerMessage c(Commands::Bridge_Response, uid); \
+      c.send_data(hresult); \
+    } \
+  } 
+
 #define PULL(type, name) const auto& name = (type)DeviceBridge::get_data()
 #define PULL_I(name) PULL(INT, name)
 #define PULL_U(name) PULL(UINT, name)
@@ -309,7 +316,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pSurface;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateOffscreenPlainSurfaceEx:
@@ -327,7 +334,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pSurface;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateDepthStencilSurfaceEx:
@@ -347,7 +354,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pSurface;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
 
@@ -517,7 +524,7 @@ void ProcessDeviceCommandQueue() {
         if (SUCCEEDED(hresult)) {
           gpD3DSwapChains[pHandle] = pSwapChain;
         }
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_GetSwapChain:
@@ -656,7 +663,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pTexture;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateVolumeTexture:
@@ -676,7 +683,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pVolumeTexture;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateCubeTexture:
@@ -694,7 +701,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pCubeTexture;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateVertexBuffer:
@@ -711,7 +718,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pVertexBuffer;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateIndexBuffer:
@@ -728,7 +735,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pIndexBuffer;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateRenderTarget:
@@ -747,7 +754,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pSurface;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateDepthStencilSurface:
@@ -766,7 +773,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pSurface;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_UpdateSurface:
@@ -870,7 +877,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pSurface;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_SetRenderTarget:
@@ -1066,7 +1073,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DStateBlocks[pHandle] = pSB;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_BeginStateBlock:
@@ -1262,7 +1269,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DVertexDeclarations[pHandle] = pDecl;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_SetVertexDeclaration:
@@ -1304,7 +1311,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DVertexShaders[pHandle] = pShader;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_SetVertexShader:
@@ -1422,7 +1429,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DPixelShaders[pHandle] = pShader;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_SetPixelShader:

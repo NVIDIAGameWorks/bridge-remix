@@ -2359,9 +2359,6 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::CreateVertexDeclaration(CONST D3DVERT
   if (pVertexElements == nullptr || ppDecl == nullptr) {
     return D3DERR_INVALIDCALL;
   }
-  if (pVertexElements->Stream == 0xFF) {
-    return D3DERR_INVALIDCALL;
-  }
   UID currentUID = 0;
   {
     auto* const pLssVtxDecl = trackWrapper(new Direct3DVertexDeclaration9_LSS(this, pVertexElements));

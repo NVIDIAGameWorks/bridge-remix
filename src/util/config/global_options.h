@@ -102,6 +102,10 @@ public:
     return get().sendAllServerResponses;
   }
 
+  static bool getSendCreateFunctionServerResponses() {
+    return get().sendCreateFunctionServerResponses;
+  }
+
   static bool getLogAllCalls() {
     return get().logAllCalls;
   }
@@ -284,6 +288,11 @@ private:
     // to wait for a response.
     sendAllServerResponses = bridge_util::Config::getOption<bool>("sendAllServerResponses", false);
 
+    // Create API calls from the client wait for a response from the server by default,
+    // but the wait can be disabled if both sendCreateFunctionServerResponses and
+    // sendAllServerResponses are set to False.
+    sendCreateFunctionServerResponses = bridge_util::Config::getOption<bool>("sendCreateFunctionServerResponses", true);
+
     // In most cases it is only useful to log those D3D calls that have not been
     // implemented on the server side yet, but by toggling this you will get the
     // first usage of all D3D calls logged, including the implemented ones.
@@ -391,6 +400,7 @@ private:
   uint32_t serverDataQueueSize;
   bool sendReadOnlyCalls;
   bool sendAllServerResponses;
+  bool sendCreateFunctionServerResponses;
   bool logAllCalls;
   uint32_t commandTimeout;
   uint32_t startupTimeout;

@@ -96,6 +96,9 @@ class DirectInputForwarder {
   LONG m_windowWidth = 3840;
   LONG m_windowHeight = 2160;
 
+  static bool s_checkedForwardDirectInputMessagesOption;
+  static bool s_cachedForwardDirectInputMessagesOption;
+
   void forwardMessage(const WndMsg& wm) const {
     const bool isMouse = wm.msg >= WM_MOUSEFIRST && wm.msg <= WM_MOUSELAST;
 
@@ -107,8 +110,11 @@ class DirectInputForwarder {
       ONCE(Logger::warn("Non-exclusive DirectInput keyboard message skipped."));
       return;
     }
-
-    if (!ClientOptions::getForwardDirectInputMessages()) {
+    if (!s_checkedForwardDirectInputMessagesOption) {
+      s_cachedForwardDirectInputMessagesOption = ClientOptions::getForwardDirectInputMessages();
+      s_checkedForwardDirectInputMessagesOption = true;
+    }
+    if (!s_cachedForwardDirectInputMessagesOption) {
       return;
     }
 
@@ -281,6 +287,10 @@ public:
 #endif
   }
 } g_DInputForwarder;
+
+
+bool DirectInputForwarder::s_checkedForwardDirectInputMessagesOption = false;
+bool DirectInputForwarder::s_cachedForwardDirectInputMessagesOption = false;
 
 // DirectInput hook base class to be shared across all API versions.
 // Holds original function pointers and implements the hooked versions.

@@ -30,44 +30,36 @@
 #include <d3d9.h>
 
 namespace ClientOptions {
-  static const bool useVanillaDxvk = bridge_util::Config::getOption<bool>("client.useVanillaDxvk", false);
   inline bool getUseVanillaDxvk() {
-    return useVanillaDxvk;
+    return bridge_util::Config::getOption<bool>("client.useVanillaDxvk", false);
   }
 
-  static const bool setExceptionHandler = bridge_util::Config::getOption<bool>("client.setExceptionHandler", false);
   inline bool getSetExceptionHandler() {
-    return setExceptionHandler;
+    return bridge_util::Config::getOption<bool>("client.setExceptionHandler", false);
   }
 
-  static const bool hookMessagePump = bridge_util::Config::getOption<bool>("client.hookMessagePump", false);
   inline bool getHookMessagePump() {
-    return hookMessagePump;
+    return bridge_util::Config::getOption<bool>("client.hookMessagePump", false);
   }
 
-  static const bool overrideCustomWinHooks = bridge_util::Config::getOption<bool>("client.overrideCustomWinHooks", false);
   inline bool getOverrideCustomWinHooks() {
-    return overrideCustomWinHooks;
+    return bridge_util::Config::getOption<bool>("client.overrideCustomWinHooks", false);
   }
 
-  static const bool forwardDirectInputMessages = bridge_util::Config::getOption<bool>("client.DirectInput.forwardMessages", true);
   inline bool getForwardDirectInputMessages() {
-    return forwardDirectInputMessages;
+    return bridge_util::Config::getOption<bool>("client.DirectInput.forwardMessages", true);
   }
 
-  static const bool disableExclusiveInput = bridge_util::Config::getOption<bool>("client.DirectInput.disableExclusiveInput", false);
   inline bool getDisableExclusiveInput() {
-    return disableExclusiveInput;
+    return bridge_util::Config::getOption<bool>("client.DirectInput.disableExclusiveInput", false);
   }
 
-  static const bool forceWindowed = bridge_util::Config::getOption<bool>("client.forceWindowed", false);
   inline bool getForceWindowed() {
-    return forceWindowed;
+    return bridge_util::Config::getOption<bool>("client.forceWindowed", false);
   }
 
-  static const bool enableDpiAwareness = bridge_util::Config::getOption<bool>("client.enableDpiAwareness", true);
   inline bool getEnableDpiAwareness() {
-    return enableDpiAwareness;
+    return bridge_util::Config::getOption<bool>("client.enableDpiAwareness", true);
   }
 
   // If set, the space for data for dynamic buffer updates will be preallocated on data channel

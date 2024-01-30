@@ -31,60 +31,43 @@
 
 namespace ClientOptions {
   inline bool getUseVanillaDxvk() {
-    static const bool useVanillaDxvk =
-      bridge_util::Config::getOption<bool>("client.useVanillaDxvk", false);
-    return useVanillaDxvk;
+    return bridge_util::Config::getOption<bool>("client.useVanillaDxvk", false);
   }
 
   inline bool getSetExceptionHandler() {
-    static const bool setExceptionHandler =
-      bridge_util::Config::getOption<bool>("client.setExceptionHandler", false);
-    return setExceptionHandler;
+    return bridge_util::Config::getOption<bool>("client.setExceptionHandler", false);
   }
 
   inline bool getHookMessagePump() {
-    static const bool hookMessagePump =
-      bridge_util::Config::getOption<bool>("client.hookMessagePump", false);
-    return hookMessagePump;
+    return bridge_util::Config::getOption<bool>("client.hookMessagePump", false);
   }
 
   inline bool getOverrideCustomWinHooks() {
-    static const bool overrideCustomWinHooks =
-      bridge_util::Config::getOption<bool>("client.overrideCustomWinHooks", false);
-    return overrideCustomWinHooks;
+    return bridge_util::Config::getOption<bool>("client.overrideCustomWinHooks", false);
   }
 
   inline bool getForwardDirectInputMessages() {
-    static const bool forwardDirectInputMessages =
-      bridge_util::Config::getOption<bool>("client.DirectInput.forwardMessages", true);
-    return forwardDirectInputMessages;
+    return bridge_util::Config::getOption<bool>("client.DirectInput.forwardMessages", true);
   }
 
   inline bool getDisableExclusiveInput() {
-    static const bool disableExclusiveInput =
-      bridge_util::Config::getOption<bool>("client.DirectInput.disableExclusiveInput", false);
-    return disableExclusiveInput;
+    return bridge_util::Config::getOption<bool>("client.DirectInput.disableExclusiveInput", false);
   }
 
   inline bool getForceWindowed() {
-    static const bool forceWindowed =
-      bridge_util::Config::getOption<bool>("client.forceWindowed", false);
-    return forceWindowed;
+    return bridge_util::Config::getOption<bool>("client.forceWindowed", false);
   }
 
   inline bool getEnableDpiAwareness() {
-    static const bool enableDpiAwareness =
-      bridge_util::Config::getOption<bool>("client.enableDpiAwareness", true);
-    return enableDpiAwareness;
+    return bridge_util::Config::getOption<bool>("client.enableDpiAwareness", true);
   }
 
   // If set, the space for data for dynamic buffer updates will be preallocated on data channel
   // and redundant copy will be avioded. However, because D3D applications are not obliged
   // to write the entire locked region this optimization is NOT considered safe and may
   // not always work.
+  static const bool optimizedDynamicLock = bridge_util::Config::getOption<bool>("client.optimizedDynamicLock", false);
   inline bool getOptimizedDynamicLock() {
-    static const bool optimizedDynamicLock =
-      bridge_util::Config::getOption<bool>("client.optimizedDynamicLock", false);
     return optimizedDynamicLock;
   }
 }

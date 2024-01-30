@@ -65,6 +65,13 @@ using namespace bridge_util;
     } \
   } 
 
+#define SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, uid) { \
+    if (GlobalOptions::getSendCreateFunctionServerResponses() || GlobalOptions::getSendAllServerResponses()) { \
+      ServerMessage c(Commands::Bridge_Response, uid); \
+      c.send_data(hresult); \
+    } \
+  } 
+
 #define PULL(type, name) const auto& name = (type)DeviceBridge::get_data()
 #define PULL_I(name) PULL(INT, name)
 #define PULL_U(name) PULL(UINT, name)
@@ -117,6 +124,8 @@ std::unordered_map<uint32_t, IDirect3DVertexShader9*> gpD3DVertexShaders;
 std::unordered_map<uint32_t, IDirect3DPixelShader9*> gpD3DPixelShaders;
 std::unordered_map<uint32_t, IDirect3DSwapChain9*> gpD3DSwapChains;
 std::unordered_map<uint32_t, IDirect3DQuery9*> gpD3DQuery;
+
+std::mutex gLock;
 
 // Global state
 bool gbBridgeRunning = true;
@@ -270,6 +279,7 @@ void ProcessDeviceCommandQueue() {
         ZoneName(commandStr.c_str(), commandStr.size());
       }
       PULL_U(currentUID);
+      std::unique_lock<std::mutex> lock(gLock);
       // The mother of all switch statements - every call in the D3D9 interface is mapped here...
       switch (rpcHeader.command) {
       case IDirect3DDevice9Ex_GetDisplayModeEx:
@@ -306,7 +316,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pSurface;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateOffscreenPlainSurfaceEx:
@@ -324,7 +334,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pSurface;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateDepthStencilSurfaceEx:
@@ -344,7 +354,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pSurface;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
 
@@ -514,7 +524,7 @@ void ProcessDeviceCommandQueue() {
         if (SUCCEEDED(hresult)) {
           gpD3DSwapChains[pHandle] = pSwapChain;
         }
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_GetSwapChain:
@@ -653,7 +663,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pTexture;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateVolumeTexture:
@@ -673,7 +683,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pVolumeTexture;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateCubeTexture:
@@ -691,7 +701,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pCubeTexture;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateVertexBuffer:
@@ -708,7 +718,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pVertexBuffer;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateIndexBuffer:
@@ -725,7 +735,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pIndexBuffer;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateRenderTarget:
@@ -744,7 +754,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pSurface;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_CreateDepthStencilSurface:
@@ -763,7 +773,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pSurface;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_UpdateSurface:
@@ -867,7 +877,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DResources[pHandle] = pSurface;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_SetRenderTarget:
@@ -1063,7 +1073,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DStateBlocks[pHandle] = pSB;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_BeginStateBlock:
@@ -1259,7 +1269,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DVertexDeclarations[pHandle] = pDecl;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_SetVertexDeclaration:
@@ -1301,7 +1311,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DVertexShaders[pHandle] = pShader;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_SetVertexShader:
@@ -1419,7 +1429,7 @@ void ProcessDeviceCommandQueue() {
           gpD3DPixelShaders[pHandle] = pShader;
         }
         assert(SUCCEEDED(hresult));
-        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        SEND_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(hresult, currentUID);
         break;
       }
       case IDirect3DDevice9Ex_SetPixelShader:
@@ -2950,7 +2960,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
   Logger::info("Handshake completed! Now waiting for incoming commands...");
 
   std::atomic<bool> bSignalDone(false);
-  auto moduleCmdProcessingThread = std::thread([&](){
+  auto moduleCmdProcessingThread = std::thread([&]() {
     processModuleCommandQueue(&bSignalDone);
   });
   // Process device commands

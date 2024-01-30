@@ -59,6 +59,18 @@ extern bool gbBridgeRunning;
     } \
   } 
 
+#define WAIT_FOR_OPTIONAL_CREATE_FUNCTION_SERVER_RESPONSE(func, value, uidVal) \
+  { \
+    if (GlobalOptions::getSendCreateFunctionServerResponses() || GlobalOptions::getSendAllServerResponses()) { \
+      WAIT_FOR_SERVER_RESPONSE(func, value, uidVal) \
+      HRESULT res = (HRESULT) DeviceBridge::get_data(); \
+      DeviceBridge::pop_front(); \
+      return  res; \
+    } else { \
+      return D3D_OK; \
+    } \
+  } 
+
 using namespace bridge_util;
 
 // Used structs over class enum for explicit type names while debugging

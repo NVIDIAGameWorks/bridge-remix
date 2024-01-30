@@ -37,10 +37,6 @@
 #define GETPROC_ORIG(h, x) \
   orig_##x = reinterpret_cast<decltype(x)*>(::GetProcAddress(h, #x))
 
-API_HOOK_DECL(GetProcAddress);
-API_HOOK_DECL(IsDebuggerPresent);
-API_HOOK_DECL(CheckRemoteDebuggerPresent);
-
 API_HOOK_DECL2(Direct3DCreate9);
 API_HOOK_DECL2(Direct3DCreate9Ex);
 
@@ -61,47 +57,6 @@ extern std::chrono::steady_clock::time_point gTimeStart;
 static HMODULE ghSystemD3D9;
 static bool gRemixAttached = false;
 
-static FARPROC WINAPI HookedGetProcAddress(HMODULE hModule, LPCSTR lpProcName) {
-  // Check if proc name is an ordinal
-  // MSDN: If this parameter is an ordinal value, it must be in
-  //       the low-order word; the high-order word must be zero.
-  if (IS_INTRESOURCE(lpProcName)) {
-    return orig_GetProcAddress(hModule, lpProcName);
-  }
-
-  // Special case - Bridge is requesting d3d9 functions
-  if (lpProcName[0] == '_' && lpProcName[1] == '_') {
-    if (0 == strcmp(lpProcName, "__Direct3DCreate9Ex")) {
-      // Return real unhooked function if it is requested for system d3d9.dll
-      if (ghSystemD3D9 && hModule == ghSystemD3D9) {
-        return (FARPROC) orig_Direct3DCreate9Ex;
-      }
-      return orig_GetProcAddress(hModule, "Direct3DCreate9Ex");
-    }
-
-    if (0 == strcmp(lpProcName, "__Direct3DCreate9")) {
-      // Return real unhooked function if it is requested for system d3d9.dll
-      if (ghSystemD3D9 && hModule == ghSystemD3D9) {
-        return (FARPROC) orig_Direct3DCreate9;
-      }
-      return orig_GetProcAddress(hModule, "Direct3DCreate9");
-    }
-  }
-
-  return orig_GetProcAddress(hModule, lpProcName);
-}
-
-static BOOL WINAPI HookedIsDebuggerPresent() {
-  return FALSE;
-}
-
-static BOOL WINAPI HookedCheckRemoteDebuggerPresent(HANDLE hProcess, PBOOL pbDebuggerPresent) {
-  if (pbDebuggerPresent) {
-    *pbDebuggerPresent = FALSE;
-  }
-
-  return TRUE;
-}
 
 static HRESULT WINAPI HookedDirect3DCreate9Ex(UINT SDKVersion, IDirect3D9Ex** ppDeviceEx) {
   return LssDirect3DCreate9Ex(SDKVersion, ppDeviceEx);
@@ -174,10 +129,6 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved) {
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
 
-    API_ATTACH(GetProcAddress);
-    API_ATTACH(IsDebuggerPresent);
-    API_ATTACH(CheckRemoteDebuggerPresent);
-
     API_ATTACH(Direct3DCreate9Ex);
     API_ATTACH(Direct3DCreate9);
 #ifdef WITH_FULL_D3D9_HOOK
@@ -214,10 +165,6 @@ BOOL WINAPI DllMain(HINSTANCE hinst, DWORD dwReason, LPVOID reserved) {
 
     DetourTransactionBegin();
     DetourUpdateThread(GetCurrentThread());
-
-    API_DETACH(GetProcAddress);
-    API_DETACH(IsDebuggerPresent);
-    API_DETACH(CheckRemoteDebuggerPresent);
 
     API_DETACH(Direct3DCreate9Ex);
     API_DETACH(Direct3DCreate9);

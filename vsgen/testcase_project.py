@@ -57,12 +57,8 @@ def generate_testcase_project(vcxproj_output_path, test_case, command_line, outp
                               copy_target=copy_target,
                               copy_target_server=copy_target_server,
                               copy_target_launcher=copy_target_launcher,
-                              client_project_name=client_project_name,
-                              server_project_name=server_project_name,
-                              launcher_project_name=launcher_project_name,
-                              client_project_guid = generate_guid(client_project_name),
-                              server_project_guid = generate_guid(server_project_name),
-                              launcher_project_guid = generate_guid(launcher_project_name))
+                              bridge_project_name=bridge_project_name,
+                              bridge_project_guid = generate_guid(bridge_project_name))
 
     write_file_if_not_identical(vcxproj_output_path, vcxproj_target, d)
 

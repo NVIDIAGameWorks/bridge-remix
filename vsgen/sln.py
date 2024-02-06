@@ -37,22 +37,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.1.32210.238
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{$nmake_project_type_guid}") = "$client_project_name", "${client_project_name}.vcxproj", "{$client_project_guid}"
-EndProject
-Project("{$nmake_project_type_guid}") = "$util_project_name", "${util_project_name}.vcxproj", "{$util_project_guid}"
-EndProject
-Project("{$nmake_project_type_guid}") = "$server_project_name", "${server_project_name}.vcxproj", "{$server_project_guid}"
-EndProject
-Project("{$nmake_project_type_guid}") = "$launcher_project_name", "${launcher_project_name}.vcxproj", "{$launcher_project_guid}"
+Project("{$nmake_project_type_guid}") = "$bridge_project_name", "${bridge_project_name}.vcxproj", "{$bridge_project_guid}"
 EndProject
 """)
 
 test_project_template = Template("""Project("{$nmake_project_type_guid}") = "$project_name", "$project_file_name.vcxproj", "{$project_guid}"
 	ProjectSection(ProjectDependencies) = postProject
-		{$client_project_guid} = {$client_project_guid}
-        {$util_project_guid} = {$util_project_guid}
-        {$server_project_guid} = {$server_project_guid}
-        {$launcher_project_guid} = {$launcher_project_guid}
+		{$bridge_project_guid} = {$bridge_project_guid}
 	EndProjectSection
 EndProject
 """)
@@ -109,10 +100,7 @@ old_output_file = "bridge.sln"
 
 def generate_sln(output_root_path, test_cases):
 	solution_guid = generate_guid(output_file)
-	client_project_guid = generate_guid(client_project_name)
-	util_project_guid = generate_guid(util_project_name)
-	server_project_guid = generate_guid(server_project_name)
-	launcher_project_guid = generate_guid(launcher_project_name)
+	bridge_project_guid = generate_guid(bridge_project_name)
     
     # list of tuples (project_name, project_guid, folder_guid)
 	projects = []
@@ -130,14 +118,8 @@ def generate_sln(output_root_path, test_cases):
 
 	output_data = header_template.safe_substitute(
 		nmake_project_type_guid=nmake_project_type_guid,
-		client_project_name=client_project_name,
-		util_project_name=util_project_name,
-		server_project_name=server_project_name,
-		launcher_project_name=launcher_project_name,
-		client_project_guid=client_project_guid,
-		util_project_guid=util_project_guid,
-		server_project_guid = server_project_guid,
-        launcher_project_guid = launcher_project_guid)
+		bridge_project_name=bridge_project_name,
+		bridge_project_guid=bridge_project_guid)
 
 	for project_name, project_file_name, project_guid, folder_guid in projects:
 		output_data += test_project_template.safe_substitute(
@@ -145,10 +127,7 @@ def generate_sln(output_root_path, test_cases):
 			project_name=project_name,
 			project_file_name=project_file_name,
 			project_guid=project_guid,
-			client_project_guid=client_project_guid,
-			util_project_guid=util_project_guid,
-			server_project_guid = server_project_guid,
-			launcher_project_guid = launcher_project_guid)
+			bridge_project_guid=bridge_project_guid)
 
 	for folder_name in folders:
 		folder_guid = generate_guid(folder_name)
@@ -160,13 +139,7 @@ def generate_sln(output_root_path, test_cases):
 	output_data +=  global_header
 
 	output_data += global_project_section_template.safe_substitute(
-		project_guid=client_project_guid)
-	output_data += global_project_section_template.safe_substitute(
-		project_guid=util_project_guid)
-	output_data += global_project_section_template.safe_substitute(
-		project_guid=server_project_guid)
-	output_data += global_project_section_template.safe_substitute(
-		project_guid=launcher_project_guid)
+		project_guid=bridge_project_guid)
 
 	for project_name, project_file_name, project_guid, folder_guid in projects:
 		output_data += global_project_section_template.safe_substitute(

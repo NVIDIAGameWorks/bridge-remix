@@ -23,8 +23,9 @@
 _output/
 _output
 _comp*
+_vs/**
+
 .history
-
 game_list.txt
-
 test/rtx/APICs/
+vsgen/__pycache__/**

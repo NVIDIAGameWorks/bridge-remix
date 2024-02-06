@@ -79,14 +79,8 @@
   <ItemGroup>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="${client_project_name}.vcxproj">
-      <Project>{$client_project_guid}</Project>
-    </ProjectReference>
-    <ProjectReference Include="${server_project_name}.vcxproj">
-      <Project>{$server_project_guid}</Project>
-    </ProjectReference>
-    <ProjectReference Include="${launcher_project_name}.vcxproj">
-      <Project>{$launcher_project_guid}</Project>
+    <ProjectReference Include="${bridge_project_name}.vcxproj">
+      <Project>{$bridge_project_guid}</Project>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -30,7 +30,7 @@ header_exts = [ ".h" ]
 src_exts = [ ".cpp", ".c", ".build", ".conf" ]
 all_exts = header_exts + src_exts
 
-def generate_bridge_project(output_root_path, bridge_cpp_defines, project_base_name, sub_dir):
+def generate_bridge_project(output_root_path, bridge_cpp_defines):
     tree = { }
     vcxproj_file_references = []
     vcxproj_include_paths = { }
@@ -68,8 +68,7 @@ def generate_bridge_project(output_root_path, bridge_cpp_defines, project_base_n
 
             for f in files:
                 process_file(dirpath, f, external)
-    sub_tree_dir = "../" + sub_dir
-    process_tree(sub_tree_dir, False)
+    process_tree("../src", False)
     process_tree("../external", True)
 
     # generate vcxproj
@@ -77,7 +76,7 @@ def generate_bridge_project(output_root_path, bridge_cpp_defines, project_base_n
     # list of locations in the build directory where headers show up
     # this might change over time...
 
-    build_output_search_paths = [ sub_dir ]
+    build_output_search_paths = [ "../src" ]
     
     def build_search_path(build_dir):
         # list of build directory paths with headers in them
@@ -110,7 +109,7 @@ def generate_bridge_project(output_root_path, bridge_cpp_defines, project_base_n
     project_template = Template(open("bridge-remix.vcxproj.template", "rt").read())
         
     data = project_template.safe_substitute(
-        bridge_remix_project_guid=generate_guid(project_base_name),
+        bridge_remix_project_guid=generate_guid(bridge_project_name),
         bridge_cpp_defines=bridge_cpp_defines,
         include_search_path_debug_32=include_search_path_debug_32,
         include_search_path_debug_64=include_search_path_debug_64,
@@ -120,7 +119,7 @@ def generate_bridge_project(output_root_path, bridge_cpp_defines, project_base_n
         include_search_path_release_64=include_search_path_release_64,
         file_references=file_references)
 
-    project_name = project_base_name + ".vcxproj"
+    project_name = bridge_project_name + ".vcxproj"
     write_file_if_not_identical(output_root_path, project_name, data)
 
     # generate vcxproj.filters
@@ -155,6 +154,6 @@ def generate_bridge_project(output_root_path, bridge_cpp_defines, project_base_n
             references += reference_template.safe_substitute(path=fileref, filter_name=filter_name)
 
     data = filters_file_template.safe_substitute(filters=filters, file_references=references)
-    project_filter_name = project_base_name + ".vcxproj.filters"
+    project_filter_name = bridge_project_name + ".vcxproj.filters"
     if write_file_if_not_identical(output_root_path, project_filter_name, data):
         print("Generated " + project_filter_name)

@@ -51,8 +51,5 @@ for g in games:
     generate_testcase_project(vcxproj_output_dir, project, commandline, output_dir, working_dir)
     test_case_projects.append(project)
 
-generate_bridge_project(vcxproj_output_dir, bridge_cpp_defines, client_project_name, "src/client")
-generate_bridge_project(vcxproj_output_dir, bridge_cpp_defines, util_project_name, "src/util")
-generate_bridge_project(vcxproj_output_dir, bridge_cpp_defines, server_project_name, "src/server")
-generate_bridge_project(vcxproj_output_dir, bridge_cpp_defines, launcher_project_name, "src/launcher")
+generate_bridge_project(vcxproj_output_dir, bridge_cpp_defines)
 generate_sln(vcxproj_output_dir, test_case_projects)

@@ -26,10 +26,7 @@ import sys
 import difflib
 import configparser
 
-client_project_name = "bridge-remix-client"
-util_project_name = "bridge-remix-util"
-server_project_name = "bridge-remix-server"
-launcher_project_name = "bridge-remix-launcher"
+bridge_project_name = "bridge-remix"
 
 def generate_guid(key):
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, key)).upper()

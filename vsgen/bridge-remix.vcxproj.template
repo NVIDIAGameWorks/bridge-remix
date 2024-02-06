@@ -93,7 +93,7 @@
     <NMakeBuildCommandLine>ninja -C ..\_compDebug_x86</NMakeBuildCommandLine>
     <NMakeReBuildCommandLine>ninja -C ..\_compDebug_x86 clean all</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>ninja -C ..\_compDebug_x86 clean</NMakeCleanCommandLine>
-    <NMakePreprocessorDefinitions>$bridge_cpp_defines;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <NMakePreprocessorDefinitions>$bridge_cpp_defines;</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>$include_search_path_debug_32</NMakeIncludeSearchPath>
     <AdditionalOptions>/std:c++17 /fpermissive-</AdditionalOptions>
   </PropertyGroup>
@@ -101,7 +101,7 @@
     <NMakeBuildCommandLine>ninja -C ..\_compDebug_x64</NMakeBuildCommandLine>
     <NMakeReBuildCommandLine>ninja -C ..\_compDebug_x64 clean all</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>ninja -C ..\_compDebug_x64 clean</NMakeCleanCommandLine>
-    <NMakePreprocessorDefinitions>$bridge_cpp_defines;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <NMakePreprocessorDefinitions>$bridge_cpp_defines;</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>$include_search_path_debug_64</NMakeIncludeSearchPath>
     <AdditionalOptions>/std:c++17 /fpermissive-</AdditionalOptions>
   </PropertyGroup>
@@ -109,7 +109,7 @@
     <NMakeBuildCommandLine>ninja -C ..\_compDebugOptimized_x86</NMakeBuildCommandLine>
     <NMakeReBuildCommandLine>ninja -C ..\_compDebugOptimized_x86 clean all</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>ninja -C ..\_compDebugOptimized_x86 clean</NMakeCleanCommandLine>
-    <NMakePreprocessorDefinitions>$bridge_cpp_defines;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <NMakePreprocessorDefinitions>$bridge_cpp_defines;</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>$include_search_path_debugoptimized_32</NMakeIncludeSearchPath>
     <AdditionalOptions>/std:c++17 /fpermissive-</AdditionalOptions>
   </PropertyGroup>
@@ -117,7 +117,7 @@
     <NMakeBuildCommandLine>ninja -C ..\_compDebugOptimized_x64</NMakeBuildCommandLine>
     <NMakeReBuildCommandLine>ninja -C ..\_compDebugOptimized_x64 clean all</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>ninja -C ..\_compDebugOptimized_x64 clean</NMakeCleanCommandLine>
-    <NMakePreprocessorDefinitions>$bridge_cpp_defines;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <NMakePreprocessorDefinitions>$bridge_cpp_defines;</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>$include_search_path_debugoptimized_64</NMakeIncludeSearchPath>
     <AdditionalOptions>/std:c++17 /fpermissive-</AdditionalOptions>
   </PropertyGroup>
@@ -125,7 +125,7 @@
     <NMakeBuildCommandLine>ninja -C ..\_compRelease_x86</NMakeBuildCommandLine>
     <NMakeReBuildCommandLine>ninja -C ..\_compRelease_x86 clean all</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>ninja -C ..\_compRelease_x86 clean</NMakeCleanCommandLine>
-    <NMakePreprocessorDefinitions>$bridge_cpp_defines;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <NMakePreprocessorDefinitions>$bridge_cpp_defines;</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>$include_search_path_release_32</NMakeIncludeSearchPath>
     <AdditionalOptions>/std:c++17 /fpermissive-</AdditionalOptions>
   </PropertyGroup>
@@ -133,7 +133,7 @@
     <NMakeBuildCommandLine>ninja -C ..\_compRelease_x64</NMakeBuildCommandLine>
     <NMakeReBuildCommandLine>ninja -C ..\_compRelease_x64 clean all</NMakeReBuildCommandLine>
     <NMakeCleanCommandLine>ninja -C ..\_compRelease_x64 clean</NMakeCleanCommandLine>
-    <NMakePreprocessorDefinitions>$bridge_cpp_defines;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+    <NMakePreprocessorDefinitions>$bridge_cpp_defines;</NMakePreprocessorDefinitions>
     <NMakeIncludeSearchPath>$include_search_path_release_64</NMakeIncludeSearchPath>
     <AdditionalOptions>/std:c++17 /fpermissive-</AdditionalOptions>
   </PropertyGroup>

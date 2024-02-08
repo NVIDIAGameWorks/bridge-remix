@@ -110,6 +110,14 @@ public:
     return get().logAllCalls;
   }
 
+  static bool getLogApiCalls() {
+    return get().logApiCalls;
+  }
+
+  static bool getLogServerCommands() {
+    return get().logServerCommands;
+  }
+
   static uint32_t getCommandTimeout() {
 #ifdef _DEBUG
     return (get().disableTimeouts || (IsDebuggerPresent() && get().disableTimeoutsWhenDebugging)) ? 0 : get().commandTimeout;
@@ -293,10 +301,25 @@ private:
     // sendAllServerResponses are set to False.
     sendCreateFunctionServerResponses = bridge_util::Config::getOption<bool>("sendCreateFunctionServerResponses", true);
 
-    // In most cases it is only useful to log those D3D calls that have not been
-    // implemented on the server side yet, but by toggling this you will get the
-    // first usage of all D3D calls logged, including the implemented ones.
+    // In a Debug or DebugOptimized build of the bridge, setting LogApiCalls
+    // to True will write each call to a D3D9 API function through the bridge
+    // client to to the the client log file("d3d9.log").
+    logApiCalls = bridge_util::Config::getOption<bool>("logApiCalls", false);
+
+    // Like logApiCalls, setting LogAllCalls to True while running a
+    // Debug or Debugoptimized build of the bridge will write each call
+    // to a D3D9 API function through the bridge client to to the the
+    // client log file("d3d9.log"), except both the entry and exit of
+    // the call will be logged.This includes clientside internal calls to
+    // D3D9API functions.Additionally, each nested internal call to a
+    // public D3D9 API function will be offset by an additional tab.
     logAllCalls = bridge_util::Config::getOption<bool>("logAllCalls", false);
+
+    // In a Debug or DebugOptimized build of the bridge, setting LogServerCommands
+    // to True will write each command sent to the server to the server log file
+    // ("NvRemixBridge.log")
+
+    logServerCommands = bridge_util::Config::getOption<bool>("logServerCommands", false);
 
     // These values strike a good balance between not waiting too long during the
     // handshake on startup, which we expect to be relatively quick, while still being
@@ -402,6 +425,8 @@ private:
   bool sendAllServerResponses;
   bool sendCreateFunctionServerResponses;
   bool logAllCalls;
+  bool logApiCalls;
+  bool logServerCommands;
   uint32_t commandTimeout;
   uint32_t startupTimeout;
   uint32_t ackTimeout;

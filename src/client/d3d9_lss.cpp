@@ -58,12 +58,13 @@ uintptr_t D3dBaseIdFactory::getNextId() {
   return id_counter++;
 }
 
-#ifdef _DEBUG
+#if defined(_DEBUG) || defined(DEBUGOPT)
 
 std::map<std::thread::id, std::atomic<size_t>> FunctionEntryExitLogger::s_counters;
 
 FunctionEntryExitLogger::FunctionEntryExitLogger(const std::string functionName, void* thiz) {
-  if (GlobalOptions::getLogAllCalls()) {
+  if (GlobalOptions::getLogApiCalls() || GlobalOptions::getLogAllCalls()) {
+    
     std::string tabs = "";
     if (s_counters.count(std::this_thread::get_id()) == 0) {
       s_counters[std::this_thread::get_id()] = 0;
@@ -72,8 +73,15 @@ FunctionEntryExitLogger::FunctionEntryExitLogger(const std::string functionName,
     for (int i = 0; i < counter; i++) {
       tabs.append("\t");
     }
+    if (!GlobalOptions::getLogAllCalls()) {
+      if (counter == 0) {
+        _LogFunctionCall(functionName, thiz);
+      }
+    }
+    else {
+      _LogFunctionCall(tabs + functionName + " ENTRY", thiz);
+    }
     counter++;
-    _LogFunctionCall(tabs + functionName + " ENTRY", thiz);
     m_functionName = functionName;
     m_thiz = thiz;
   }
@@ -81,9 +89,12 @@ FunctionEntryExitLogger::FunctionEntryExitLogger(const std::string functionName,
 }
 
 FunctionEntryExitLogger::~FunctionEntryExitLogger() {
-  if (GlobalOptions::getLogAllCalls()) {
+  if (GlobalOptions::getLogApiCalls() || GlobalOptions::getLogAllCalls()) {
     std::atomic<size_t>& counter = s_counters[std::this_thread::get_id()];
     counter--;
+    if (!GlobalOptions::getLogAllCalls()) {
+      return;
+    }
     std::string tabs = "";
     for (int i = 0; i < counter; i++) {
       tabs.append("\t");

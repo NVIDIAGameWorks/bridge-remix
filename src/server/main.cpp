@@ -279,6 +279,11 @@ void ProcessDeviceCommandQueue() {
         ZoneName(commandStr.c_str(), commandStr.size());
       }
       PULL_U(currentUID);
+#if defined(_DEBUG) || defined(DEBUGOPT)
+      if (GlobalOptions::getLogServerCommands()) {
+        Logger::info(toString(rpcHeader.command));
+      }
+#endif
       std::unique_lock<std::mutex> lock(gLock);
       // The mother of all switch statements - every call in the D3D9 interface is mapped here...
       switch (rpcHeader.command) {

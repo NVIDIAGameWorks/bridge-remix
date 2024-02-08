@@ -55,6 +55,11 @@ if get_option('buildtype') != 'debug'
   add_project_arguments('-DNDEBUG', language: 'cpp')
 endif
 
+if get_option('buildtype') == 'debugoptimized'
+  add_project_arguments('/DDEBUGOPT', language: 'cpp')
+  vs_project_defines += 'DEBUGOPT;'
+endif
+
 bridge_compiler = meson.get_compiler('cpp')
 bridge_is_msvc = bridge_compiler.get_id() == 'msvc'
 

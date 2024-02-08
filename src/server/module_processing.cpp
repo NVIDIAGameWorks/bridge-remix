@@ -86,6 +86,11 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
     Commands::Bridge_Any, 0, pbSignalEnd))) {
     const Header rpcHeader = ModuleBridge::pop_front();
     PULL_U(currentUID);
+#if defined(_DEBUG) || defined(DEBUGOPT)
+    if (GlobalOptions::getLogServerCommands()) {
+      Logger::info(toString(rpcHeader.command));
+    }
+#endif
     std::unique_lock<std::mutex> lock(gLock);
     // The mother of all switch statements - every call in the D3D9 interface is mapped here...
     switch (rpcHeader.command) {

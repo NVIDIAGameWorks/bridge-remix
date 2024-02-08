@@ -114,6 +114,10 @@ public:
     return get().logApiCalls;
   }
 
+  static bool getLogServerCommands() {
+    return get().logServerCommands;
+  }
+
   static uint32_t getCommandTimeout() {
 #ifdef _DEBUG
     return (get().disableTimeouts || (IsDebuggerPresent() && get().disableTimeoutsWhenDebugging)) ? 0 : get().commandTimeout;
@@ -311,6 +315,12 @@ private:
     // public D3D9 API function will be offset by an additional tab.
     logAllCalls = bridge_util::Config::getOption<bool>("logAllCalls", false);
 
+    // In a Debug or DebugOptimized build of the bridge, setting LogServerCommands
+    // to True will write each command sent to the server to the server log file
+    // ("NvRemixBridge.log")
+
+    logServerCommands = bridge_util::Config::getOption<bool>("logServerCommands", false);
+
     // These values strike a good balance between not waiting too long during the
     // handshake on startup, which we expect to be relatively quick, while still being
     // resilient enough against blips that can cause intermittent timeouts during
@@ -416,6 +426,7 @@ private:
   bool sendCreateFunctionServerResponses;
   bool logAllCalls;
   bool logApiCalls;
+  bool logServerCommands;
   uint32_t commandTimeout;
   uint32_t startupTimeout;
   uint32_t ackTimeout;

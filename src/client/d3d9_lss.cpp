@@ -58,7 +58,7 @@ uintptr_t D3dBaseIdFactory::getNextId() {
   return id_counter++;
 }
 
-#ifdef _DEBUG
+#if defined(_DEBUG) || defined(DEBUGOPT)
 
 std::map<std::thread::id, std::atomic<size_t>> FunctionEntryExitLogger::s_counters;
 

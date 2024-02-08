@@ -42,7 +42,7 @@
 
 using namespace bridge_util;
 
-#ifdef _DEBUG
+#if defined(_DEBUG) || defined(DEBUGOPT)
 
 class FunctionEntryExitLogger {
 public:

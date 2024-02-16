@@ -243,7 +243,7 @@ public:
     inline void send_data(const DataT size, const void* obj) {
       ZoneScoped;
       if (gbBridgeRunning) {
-        size_t memUsed = align<size_t>(size, sizeof(DataT)) / sizeof(DataT) + 1;
+        size_t memUsed = (obj == nullptr) ? 1 : (align<size_t>(size, sizeof(DataT)) / sizeof(DataT)) + 1;
         syncDataQueue(memUsed, true);
         const auto result = s_pWriterChannel->data->push(size, obj);
         if (RESULT_FAILURE(result)) {

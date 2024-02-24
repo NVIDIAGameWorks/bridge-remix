@@ -158,6 +158,11 @@ DECL_BRIDGE_FUNC(bridge_util::Result, waitForCommand, const Commands::D3D9Comman
     Logger::trace(format_string("Waiting for command %s for %d ms up to %d times...", Commands::toString(command).c_str(), peekTimeoutMS, maxAttempts));
   }
 #endif
+#if defined(_DEBUG) || defined(DEBUGOPT)
+  if (GlobalOptions::getLogAllCommands()) {
+    Logger::info("waitForCommand Command:" + toString(command) + (verifyUID ? " UID: " + std::to_string(uidToVerify) : ""));
+  }
+#endif
   bool infiniteRetries = false;
   bool bEarlyOut = false;
   uint32_t attemptNum = 0;
@@ -183,8 +188,12 @@ DECL_BRIDGE_FUNC(bridge_util::Result, waitForCommand, const Commands::D3D9Comman
 #endif
         return Result::Success;
       } else {
-        Logger::debug(format_string("Different instance of a command detected: %s with UID: %s , Expected: %s with UID: %s. ", Commands::toString(header.command).c_str(), std::to_string(header.pHandle).c_str(),
-                                    Commands::toString(command).c_str(), std::to_string(uidToVerify).c_str()));
+#if defined(_DEBUG) || defined(DEBUGOPT)
+        if (GlobalOptions::getLogAllCommands()) {
+          Logger::info(format_string("Different instance of a command detected: %s with UID: %s , Expected: %s with UID: %s. ", Commands::toString(header.command).c_str(), std::to_string(header.pHandle).c_str(),
+                                     Commands::toString(command).c_str(), std::to_string(uidToVerify).c_str()));
+        }
+#endif
         // If we see the incorrect command, we want to give the other side of
         // the bridge ample time to make an attempt to process it first
         Sleep(peekTimeoutMS);
@@ -253,6 +262,16 @@ DECL_COMMAND_FUNC(,Command,const Commands::D3D9Command command,
   // this issue I recommend enclosing the Command object in its own scope block, and make
   // sure there is no command nesting happening either.
 
+#if defined(_DEBUG) || defined(DEBUGOPT)
+  if (GlobalOptions::getLogAllCommands()) {
+#ifdef REMIX_BRIDGE_CLIENT
+    Logger::info("Requesting: " +toString(command) + " UID: " + std::to_string(s_cmdUID));
+#else
+    Logger::info("Responding: " + toString(command) + " UID: " + std::to_string(pHandle));
+#endif
+  }
+#endif
+
 #ifdef REMIX_BRIDGE_CLIENT
   s_pWriterChannel->m_mutex.lock();
 #endif
@@ -274,6 +293,11 @@ DECL_COMMAND_FUNC(,Command,const Commands::D3D9Command command,
 #ifdef REMIX_BRIDGE_CLIENT
       syncDataQueue(1, false);
       const auto result = s_pWriterChannel->data->push((UINT)s_cmdUID);
+#if defined(_DEBUG) || defined(DEBUGOPT)
+      if (GlobalOptions::getLogAllCommands()) {
+        Logger::info("Pushed UID: " + std::to_string(s_cmdUID));
+      }
+#endif
       if (RESULT_FAILURE(result)) {
         // For now just log when things go wrong, but could use some robustness improvements
         Logger::err("DataQueue send_data: Failed to send data!");
@@ -293,6 +317,11 @@ DECL_COMMAND_FUNC(,~Command) {
     // was disabled externally by the server process exit callback.
     do {
       result = s_pWriterChannel->commands->push({ m_command, m_commandFlags, (uint32_t) s_pWriterChannel->data->get_pos(), m_handle });
+#if defined(_DEBUG) || defined(DEBUGOPT)
+      if (GlobalOptions::getLogAllCommands()) {
+        Logger::info("Pushed: " + toString(m_command));
+      }
+#endif
     } while (
           RESULT_FAILURE(result)
       && numRetries++ < GlobalOptions::getCommandRetries()

@@ -281,7 +281,7 @@ void ProcessDeviceCommandQueue() {
       PULL_U(currentUID);
 #if defined(_DEBUG) || defined(DEBUGOPT)
       if (GlobalOptions::getLogServerCommands()) {
-        Logger::info(toString(rpcHeader.command));
+        Logger::info("Device Processing: " + toString(rpcHeader.command) + " UID: " + std::to_string(currentUID));
       }
 #endif
       std::unique_lock<std::mutex> lock(gLock);

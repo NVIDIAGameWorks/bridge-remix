@@ -114,8 +114,12 @@ public:
     return get().logApiCalls;
   }
 
+  static bool getLogAllCommands() {
+    return get().logAllCommands;
+  }
+
   static bool getLogServerCommands() {
-    return get().logServerCommands;
+    return get().logServerCommands || get().logAllCommands;
   }
 
   static uint32_t getCommandTimeout() {
@@ -315,9 +319,17 @@ private:
     // public D3D9 API function will be offset by an additional tab.
     logAllCalls = bridge_util::Config::getOption<bool>("logAllCalls", false);
 
+    // In a Debug or DebugOptimized build of the bridge, setting LogAllCommands
+    // will log Command object creation, commands being pushed to the command buffer,
+    // and waitForCommand calls to the respective Bridge server or client log files.
+    // Additionally, it will enable logging of Bridge Server Module and Device
+    // processing, the same as setting logServerCommands to True
+
+    logAllCommands = bridge_util::Config::getOption<bool>("logAllCommands", false);
+
     // In a Debug or DebugOptimized build of the bridge, setting LogServerCommands
-    // to True will write each command sent to the server to the server log file
-    // ("NvRemixBridge.log")
+    // or LogAllCommands to True will write each command sent to the server to the server 
+    // log file ("NvRemixBridge.log")
 
     logServerCommands = bridge_util::Config::getOption<bool>("logServerCommands", false);
 
@@ -426,6 +438,7 @@ private:
   bool sendCreateFunctionServerResponses;
   bool logAllCalls;
   bool logApiCalls;
+  bool logAllCommands;
   bool logServerCommands;
   uint32_t commandTimeout;
   uint32_t startupTimeout;

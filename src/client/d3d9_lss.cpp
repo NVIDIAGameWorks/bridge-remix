@@ -120,6 +120,18 @@ std::chrono::steady_clock::time_point gTimeStart;
 bool gbBridgeRunning = true;
 std::string gRemixFolder = "";
 
+void PrintRecentCommandHistory() {
+  // Log history of recent client side commands sent and received by the server
+  Logger::info("Most recent Device Queue commands sent from Client");
+  DeviceBridge::Command::print_writer_data_sent();
+  Logger::info("Most recent Device Queue commands received by Server");
+  DeviceBridge::Command::print_writer_data_received();
+  Logger::info("Most recent Module Queue commands sent from Client");
+  ModuleBridge::Command::print_writer_data_sent();
+  Logger::info("Most recent Module Queue commands received by Server");
+  ModuleBridge::Command::print_writer_data_received();
+}
+
 // Setup bridge exception handler if requested
 void SetupExceptionHandler() {
   if (ClientOptions::getSetExceptionHandler()) {
@@ -134,7 +146,10 @@ void OnServerExited(Process const* process) {
   gbBridgeRunning = false;
   // Notify the user that we have to shut down the bridge entirely because we don't have a renderer anymore
   if (BridgeState::getClientState() != BridgeState::ProcessState::DoneProcessing) {
-    Logger::err("The server process has unexpectedly exited, shutting bridge down until next game relaunch!");
+    Logger::err("The bridge server process has unexpectedly exited, closing the bridge client and host application.");
+    PrintRecentCommandHistory();
+    MessageBox(nullptr, "The bridge server process has unexpectedly exited, closing the bridge client and host application.", "RTX Remix Bridge Error!",MB_OK);
+    std::abort();
   }
 
   const auto timeServerEnd = std::chrono::high_resolution_clock::now();
@@ -556,15 +571,7 @@ void RemixDetach() {
       delete gpServer;
     }
 
-    // Log history of recent client side commands sent and received by the server
-    Logger::info("Most recent Device Queue commands sent from Client");
-    DeviceBridge::Command::print_writer_data_sent();
-    Logger::info("Most recent Device Queue commands received by Server");
-    DeviceBridge::Command::print_writer_data_received();
-    Logger::info("Most recent Module Queue commands sent from Client");
-    ModuleBridge::Command::print_writer_data_sent();
-    Logger::info("Most recent Module Queue commands received by Server");
-    ModuleBridge::Command::print_writer_data_received();
+    PrintRecentCommandHistory();
 
     // Clean up resources
     delete gpPresent;

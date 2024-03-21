@@ -2711,7 +2711,7 @@ void ProcessDeviceCommandQueue() {
 
   // Check if we exited the command processing loop unexpectedly while the bridge is still enabled
   if (!done && gbBridgeRunning) {
-    Logger::debug("The command processing loop was exited unexpectedly, either due to timing out or some other command queue issue.");
+    Logger::debug("The device command processing loop was exited unexpectedly, either due to timing out or some other command queue issue.");
   }
 }
 

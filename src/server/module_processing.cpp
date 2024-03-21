@@ -82,6 +82,7 @@ namespace {
 }
 
 void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
+  bool destroyReceived = false;
   while (RESULT_SUCCESS(ModuleBridge::waitForCommand(
     Commands::Bridge_Any, 0, pbSignalEnd))) {
     const Header rpcHeader = ModuleBridge::pop_front();
@@ -107,6 +108,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
       case IDirect3D9Ex_Destroy:
       {
         bridge_util::Logger::info("D3D9 Module destroyed.");
+        destroyReceived = true;
         break;
       }
       case IDirect3D9Ex_RegisterSoftwareDevice:
@@ -406,5 +408,9 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
       break;
     }
     }
+  }
+  // Check if we exited the command processing loop unexpectedly while the bridge is still enabled
+  if (!destroyReceived && gbBridgeRunning) {
+    Logger::info("The module command processing loop was exited unexpectedly, either due to timing out or some other command queue issue.");
   }
 }

@@ -158,7 +158,11 @@ public:
   }
 
   static bool getInfiniteRetries() {
+#ifdef REMIX_BRIDGE_SERVER
+    return true;
+#else 
     return get().infiniteRetries;
+#endif
   }
   static void setInfiniteRetries(bool infiniteRetries) {
     get().infiniteRetries = infiniteRetries;

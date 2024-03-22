@@ -1161,12 +1161,28 @@ namespace {
   }
 }
 
+bool isValidD3drtansformstatetype(D3DTRANSFORMSTATETYPE Type) {
+  if (Type == D3DTS_VIEW) {
+    return true;
+  }
+  if (Type == D3DTS_PROJECTION) {
+    return true;
+  }
+  if (Type >= D3DTS_TEXTURE0 && Type <= D3DTS_TEXTURE7) {
+    return true;
+  }
+  if (Type >= D3DTS_WORLDMATRIX(0) && Type < D3DTS_WORLDMATRIX(256)) {
+    return true;
+  }
+  return false;
+}
+
 template<bool EnableSync>
 HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetTransform(D3DTRANSFORMSTATETYPE State, CONST D3DMATRIX* pMatrix) {
   ZoneScoped;
   LogFunctionCall();
 
-  if (pMatrix == nullptr) {
+  if (pMatrix == nullptr || !isValidD3drtansformstatetype(State)) {
     return D3DERR_INVALIDCALL;
   }
 

@@ -61,6 +61,18 @@ DECL_BRIDGE_FUNC(void, syncDataQueue, size_t expectedMemUsage, bool posResetOnLa
   size_t totalSize = s_pWriterChannel->data->get_total_size();
 
   if (expectedClientDataPos >= totalSize) {
+    if (*s_pWriterChannel->serverResetPosRequired == true) {
+      Logger::info("Double Overflow detected!");
+      *s_pWriterChannel->clientDataExpectedPos = s_curBatchStartPos - 1;
+      // Wait for the server to access the data at the above postion
+      const auto maxRetries = GlobalOptions::getCommandRetries();
+      size_t numRetries = 0;
+      while (RESULT_FAILURE(s_pWriterChannel->dataSemaphore->wait()) && numRetries++ < maxRetries) {
+        Logger::warn("Waiting on server to process enough data from data queue to prevent override...");
+      }
+      *s_pWriterChannel->clientDataExpectedPos = -1;
+      *s_pWriterChannel->serverResetPosRequired = false;
+    }
     if (posResetOnLastIndex) {
       // Reset index pos to 0 if the size is larger than the remaining buffer
       expectedClientDataPos = expectedMemUsage - 1;

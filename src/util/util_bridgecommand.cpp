@@ -60,18 +60,34 @@ DECL_BRIDGE_FUNC(void, syncDataQueue, size_t expectedMemUsage, bool posResetOnLa
   size_t expectedClientDataPos = currClientDataPos + ((expectedMemUsage != 0) ? expectedMemUsage : 1) - 1;
   size_t totalSize = s_pWriterChannel->data->get_total_size();
 
+  auto handleOverwriteCondition = [&]() {
+    // Below variable is set to let the server know that a particular position
+    // in the queue not yet accessed by it is going to be used
+    *s_pWriterChannel->clientDataExpectedPos = s_curBatchStartPos - 1;
+    Logger::warn("Data Queue overwrite condition triggered");
+    // Check to see if there is even enough space to ever succeed in pushing all the data
+    if ((expectedMemUsage + (currClientDataPos >= s_curBatchStartPos ? currClientDataPos - s_curBatchStartPos : currClientDataPos + totalSize - s_curBatchStartPos)) > totalSize) {
+      Logger::err("Command's data batch size is too large and overwrite could not be prevented!");
+      throw std::exception("Command's data batch size is too large and overwrite could not be prevented!");
+    }
+    // Wait for the server to access the data at the above postion
+    const auto maxRetries = GlobalOptions::getCommandRetries();
+    size_t numRetries = 0;
+    Logger::warn("Waiting on server to process enough data from data queue to prevent overwrite...");
+    while (RESULT_FAILURE(s_pWriterChannel->dataSemaphore->wait()) && numRetries++ < maxRetries) {
+    }
+    if (numRetries >= maxRetries) {
+      Logger::err("Max retries reached waiting on the server to process enough data to prevent a overwrite!");
+    }
+    *s_pWriterChannel->clientDataExpectedPos = -1;
+    *s_pWriterChannel->serverResetPosRequired = false;
+    Logger::info("DataQueue overwrite condition resolved");
+  };
+
   if (expectedClientDataPos >= totalSize) {
     if (*s_pWriterChannel->serverResetPosRequired == true) {
-      Logger::info("Double Overflow detected!");
-      *s_pWriterChannel->clientDataExpectedPos = s_curBatchStartPos - 1;
-      // Wait for the server to access the data at the above postion
-      const auto maxRetries = GlobalOptions::getCommandRetries();
-      size_t numRetries = 0;
-      while (RESULT_FAILURE(s_pWriterChannel->dataSemaphore->wait()) && numRetries++ < maxRetries) {
-        Logger::warn("Waiting on server to process enough data from data queue to prevent override...");
-      }
-      *s_pWriterChannel->clientDataExpectedPos = -1;
-      *s_pWriterChannel->serverResetPosRequired = false;
+      // Double Overflow Condition Detected, mitigate by stalling and waiting for a response
+      handleOverwriteCondition();
     }
     if (posResetOnLastIndex) {
       // Reset index pos to 0 if the size is larger than the remaining buffer
@@ -87,40 +103,15 @@ DECL_BRIDGE_FUNC(void, syncDataQueue, size_t expectedMemUsage, bool posResetOnLa
   }
 
   /*
-    * Override conditions
+    * overwrite conditions
     * 1. client < server, expectedClient >= server
     * 2. client > server, expectedClient >= server, expectedClient < client
     */
-  bool overrideConditionMet = false;
   if (expectedClientDataPos >= serverCount &&
       ((s_curBatchStartPos < serverCount)
        || (s_curBatchStartPos > serverCount && expectedClientDataPos < s_curBatchStartPos)
        || ((s_curBatchStartPos <= serverCount) && *s_pWriterChannel->serverResetPosRequired))) {
-    // Below variable is set to let the server know that a particular position
-    // in the queue not yet accessed by it is going to be used
-    *s_pWriterChannel->clientDataExpectedPos = s_curBatchStartPos - 1;
-    overrideConditionMet = true;
-  }
-
-  if (overrideConditionMet) {
-    Logger::warn("Data Queue override condition triggered");
-    // Check to see if there is even enough space to ever succeed in pushing all the data
-    if ((expectedMemUsage + (currClientDataPos >= s_curBatchStartPos ? currClientDataPos - s_curBatchStartPos : currClientDataPos + totalSize - s_curBatchStartPos)) > totalSize) {
-      Logger::err("Command's data batch size is too large and override could not be prevented!");
-      throw std::exception("Command's data batch size is too large and override could not be prevented!");
-    }
-    // Wait for the server to access the data at the above postion
-    const auto maxRetries = GlobalOptions::getCommandRetries();
-    size_t numRetries = 0;
-    while (RESULT_FAILURE(s_pWriterChannel->dataSemaphore->wait()) && numRetries++ < maxRetries) {
-      Logger::warn("Waiting on server to process enough data from data queue to prevent override...");
-    }
-    if (numRetries >= maxRetries) {
-      Logger::err("Max retries reached waiting on the server to process enough data to prevent a override!");
-    }
-    *s_pWriterChannel->clientDataExpectedPos = -1;
-    *s_pWriterChannel->serverResetPosRequired = false;
-    Logger::info("DataQueue override condition resolved");
+    handleOverwriteCondition();
   }
 }
 

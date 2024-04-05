@@ -114,6 +114,8 @@ typedef HRESULT(WINAPI* D3DC9Ex)(UINT, IDirect3D9Ex**);
 HMODULE ghModule;
 LPDIRECT3D9 gpD3D;
 
+bool gOverwriteConditionAlreadyActive = false;
+
 // Mapping between client and server pointer addresses
 std::unordered_map<uint32_t, IDirect3DDevice9*> gpD3DDevices;
 std::unordered_map<uint32_t, IDirect3DResource9*> gpD3DResources; // For Textures, Buffers, and Surfaces
@@ -2682,14 +2684,18 @@ void ProcessDeviceCommandQueue() {
     }
     assert(CHECK_DATA_OFFSET);
     *DeviceBridge::getReaderChannel().serverDataPos = DeviceBridge::get_data_pos();
-    // Check if override condition was met
+    // Check if overwrite condition was met
     if (*DeviceBridge::getReaderChannel().clientDataExpectedPos != -1) {
-      Logger::warn("Data Queue override condition triggered");
+      if (!gOverwriteConditionAlreadyActive) {
+        gOverwriteConditionAlreadyActive = true;
+        Logger::warn("Data Queue overwrite condition triggered");
+      }
       // Check if server needs to complete a loop and the position was read
       if (*DeviceBridge::getReaderChannel().serverDataPos > *DeviceBridge::getReaderChannel().clientDataExpectedPos && !(*DeviceBridge::getReaderChannel().serverResetPosRequired)) {
         DeviceBridge::getReaderChannel().dataSemaphore->release(1);
         *DeviceBridge::getReaderChannel().clientDataExpectedPos = -1;
-        Logger::info("DataQueue override condition resolved");
+        gOverwriteConditionAlreadyActive = false;
+        Logger::info("DataQueue overwrite condition resolved");
       }
     }
 

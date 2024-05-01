@@ -29,3 +29,5 @@ _vs/**
 game_list.txt
 test/rtx/APICs/
 vsgen/__pycache__/**
+
+/gametargets.conf

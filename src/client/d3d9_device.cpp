@@ -414,7 +414,6 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Reset(D3DPRESENT_PARAMETERS* pPresent
     BRIDGE_DEVICE_LOCKGUARD();
     // Clear all device state and release implicit/internal objects
     releaseInternalObjects();
-    m_state = BaseDirect3DDevice9Ex_LSS::State();
     // Reset all device state to default values and init implicit/internal objects
     ResetState();
     const auto presParam = Direct3DSwapChain9_LSS::sanitizePresentationParameters(*pPresentationParameters, getCreateParams());

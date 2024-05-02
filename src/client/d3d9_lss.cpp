@@ -468,12 +468,11 @@ LRESULT WINAPI RemixWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     CallWindowProcW(ogWndProc[hWnd], hWnd, msg, wParam, lParam);
 }
 
-void setWinProc(const HWND hwnd) {
-  if (ogWndProc[hwnd] == nullptr) {
+void setWinProc(const HWND hwnd, const bool bForce) {
+  if (bForce || ogWndProc[hwnd] == nullptr) {
     ogWndProc[hwnd] = reinterpret_cast<WNDPROC>(
       SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(RemixWndProc))
     );
-
     DInputSetDefaultWindow(hwnd);
   }
 }

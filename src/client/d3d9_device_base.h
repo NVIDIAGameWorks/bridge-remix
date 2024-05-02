@@ -168,6 +168,7 @@ protected:
   DWORD m_FVF;
   INT m_gpuThreadPriority;
   UINT m_maxFrameLatency;
+  HWND m_hWnd = NULL;
 
   struct StateCaptureDirtyFlags {
     // Vertex Decl

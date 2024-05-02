@@ -47,7 +47,7 @@ extern Process* gpServer;
 extern bool gbBridgeRunning;
 
 LRESULT WINAPI RemixWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-void setWinProc(const HWND hwnd);
+void setWinProc(const HWND hwnd, const bool bForce = false);
 void removeWinProc(const HWND hwnd);
 void SetupExceptionHandler();
 

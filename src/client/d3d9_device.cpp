@@ -491,8 +491,16 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Present(CONST RECT* pSourceRect, CONS
 
   // Seeing this in the log could indicate the game is sending inputs to a different window
   extern std::unordered_map<HWND, WNDPROC> ogWndProc;
-  if (hDestWindowOverride != NULL && ogWndProc.count(hDestWindowOverride) == 0)
-    ONCE(Logger::info("Detected unhooked winproc on Direct3DDevice9::Present"));
+  if (hDestWindowOverride != NULL) {
+    if(ogWndProc.count(hDestWindowOverride) == 0) {
+      ONCE(Logger::info("Detected unhooked winproc on Direct3DDevice9::Present"));
+    }
+  }
+  const auto hWnd = (hDestWindowOverride != NULL) ? hDestWindowOverride : m_hWnd;
+  if(GetWindowLongPtr(hWnd,GWLP_WNDPROC) != reinterpret_cast<LONG_PTR>(RemixWndProc)) {
+    setWinProc(hWnd, true);
+    Logger::warn("Detected non-Remix winproc on Present(), which is indicative of game resetting winproc after device creation. Remix winproc has been re-hooked. If this warning persists and remix GUI is not interactable, further intervention may be necessary.");
+  }
 
   if (SUCCEEDED(hresult)) {
     BRIDGE_DEVICE_LOCKGUARD();

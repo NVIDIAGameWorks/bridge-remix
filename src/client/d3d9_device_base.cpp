@@ -64,8 +64,8 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   // MSDN: For windowed mode, this parameter may be NULL only if the hDeviceWindow member
   // of pPresentationParameters is set to a valid, non-NULL value.
 
-  const auto hWindow = createParams.hFocusWindow ? createParams.hFocusWindow : presParams.hDeviceWindow;
-  setWinProc(hWindow);
+  m_hWnd = createParams.hFocusWindow ? createParams.hFocusWindow : presParams.hDeviceWindow;
+  setWinProc(m_hWnd);
   UID currentUID = 0;
   {
     ModuleClientCommand c(m_ex ? Commands::IDirect3D9Ex_CreateDeviceEx : Commands::IDirect3D9Ex_CreateDevice, getId());
@@ -87,7 +87,7 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   Logger::debug("...waiting for create device ack response from server...");
   if (Result::Success != ModuleBridge::waitForCommand(Commands::Bridge_Response, 0, nullptr, true, currentUID)) {
     Logger::err("...server-side D3D9 device creation failed with: no response from server.");
-    removeWinProc(hWindow);
+    removeWinProc(m_hWnd);
     hresultOut = D3DERR_DEVICELOST;
     return;
   }
@@ -101,7 +101,7 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   if (FAILED(hresultOut)) {
     Logger::err(format_string("...server-side D3D9 device creation failed with %x.", hresultOut));
     // Release client device and report server error to the app
-    removeWinProc(hWindow);
+    removeWinProc(m_hWnd);
     return;
   }
   Logger::debug("...server-side D3D9 device successfully created...");

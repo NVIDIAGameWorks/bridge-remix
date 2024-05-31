@@ -490,11 +490,12 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Present(CONST RECT* pSourceRect, CONS
   }
 
   // Seeing this in the log could indicate the game is sending inputs to a different window
-  extern std::unordered_map<HWND, WNDPROC> ogWndProc;
+  extern std::unordered_map<HWND, std::deque<WNDPROC>> ogWndProcList;
+  extern std::mutex gWndProcListMapMutex;
   if (hDestWindowOverride != NULL) {
-    if(ogWndProc.count(hDestWindowOverride) == 0) {
+    std::scoped_lock lock(gWndProcListMapMutex);
+    if(ogWndProcList.find(hDestWindowOverride) == ogWndProcList.end())
       ONCE(Logger::info("Detected unhooked winproc on Direct3DDevice9::Present"));
-    }
   }
   const auto hWnd = (hDestWindowOverride != NULL) ? hDestWindowOverride : m_hWnd;
   if(GetWindowLongPtr(hWnd,GWLP_WNDPROC) != reinterpret_cast<LONG_PTR>(RemixWndProc)) {

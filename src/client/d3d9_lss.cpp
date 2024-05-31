@@ -111,7 +111,8 @@ Process* gpServer = nullptr;
 NamedSemaphore* gpPresent = nullptr;
 ShadowMap gShadowMap;
 std::mutex gShadowMapMutex;
-std::unordered_map<HWND, WNDPROC> ogWndProc;
+std::unordered_map<HWND, std::deque<WNDPROC>> ogWndProcList;
+std::mutex gWndProcListMapMutex;
 std::unique_ptr<MessageChannelClient> gpRemixMessageChannel;  // Message channel with the Remix renderer
 std::unique_ptr<MessageChannelClient> gpServerMessageChannel; // Message channel with the Bridge server
 std::mutex serverStartMutex;
@@ -119,6 +120,7 @@ SceneState gSceneState = WaitBeginScene;
 std::chrono::steady_clock::time_point gTimeStart;
 bool gbBridgeRunning = true;
 std::string gRemixFolder = "";
+thread_local int gRemixWndProcEntryExitCount = 0;
 
 void PrintRecentCommandHistory() {
   // Log history of recent client side commands sent and received by the server
@@ -362,8 +364,10 @@ bool ProcessMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
   Logger::info(format_string("msg: %d, %d, %d, %d", msg, hWnd, wParam, lParam));
 #endif
 
-  if (ogWndProc.count(hWnd) == 0) {
-    return false;
+  {
+    std::scoped_lock lock(gWndProcListMapMutex);
+    if (ogWndProcList.find(hWnd) == ogWndProcList.end())
+      return true;
   }
 
   const bool uiWasActive = RemixState::isUIActive();
@@ -372,8 +376,13 @@ bool ProcessMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
   if (gpRemixMessageChannel->onMessage(msg, wParam, lParam)) {
     if (!uiWasActive && RemixState::isUIActive()) {
       // Remix UI has been activated - unstick modifier keys at application side
-      auto unstick = [hWnd](uint32_t vk) {
-        CallWindowProc(ogWndProc[hWnd], hWnd, WM_KEYUP, vk,
+      WNDPROC prevWndProc;
+      {
+        std::scoped_lock lock(gWndProcListMapMutex);
+        prevWndProc = ogWndProcList[hWnd][0];
+      }
+      auto unstick = [hWnd, prevWndProc](uint32_t vk) {
+        CallWindowProc(prevWndProc, hWnd, WM_KEYUP, vk,
           ((KF_REPEAT + KF_UP + MapVirtualKeyA(vk, MAPVK_VK_TO_VSC)) << 16) + 1);
       };
 
@@ -450,38 +459,97 @@ bool ProcessMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
       return true;
     }
   }
-
   return false;
 }
 
 LRESULT WINAPI RemixWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
   const bool isUnicode = IsWindowUnicode(hWnd);
 
-  if (ProcessMessage(hWnd, msg, wParam, lParam)) {
-    return !isUnicode ?
+  LRESULT lresult = 0;
+  gRemixWndProcEntryExitCount += 1;
+  int curEntryExitCount = gRemixWndProcEntryExitCount;
+  // Detecting recursive calls
+  if (curEntryExitCount > 1) {
+    int wndProcListLen = 0;
+    {
+      std::scoped_lock lock(gWndProcListMapMutex);
+      if(ogWndProcList.find(hWnd) != ogWndProcList.end())
+        wndProcListLen = ogWndProcList[hWnd].size();
+    }
+    int curWndProcIndex = curEntryExitCount-1;
+    if (curWndProcIndex >= wndProcListLen) {
+      gRemixWndProcEntryExitCount = 0;
+      lresult = !isUnicode ?
+        DefWindowProcA(hWnd, msg, wParam, lParam) :
+        DefWindowProcW(hWnd, msg, wParam, lParam);
+    }
+    else {
+      WNDPROC prevWndProc;
+      {
+        std::scoped_lock lock(gWndProcListMapMutex);
+        prevWndProc = ogWndProcList[hWnd][curWndProcIndex];
+      }
+      lresult = !isUnicode ?
+        CallWindowProcA(prevWndProc, hWnd, msg, wParam, lParam) :
+        CallWindowProcW(prevWndProc, hWnd, msg, wParam, lParam);
+    }
+  }
+  else if (ProcessMessage(hWnd, msg, wParam, lParam)) {
+    lresult = !isUnicode ?
       DefWindowProcA(hWnd, msg, wParam, lParam) :
       DefWindowProcW(hWnd, msg, wParam, lParam);
   }
-
-  return !isUnicode ?
-    CallWindowProcA(ogWndProc[hWnd], hWnd, msg, wParam, lParam) :
-    CallWindowProcW(ogWndProc[hWnd], hWnd, msg, wParam, lParam);
+  else {
+    WNDPROC prevWndProc;
+    {
+      std::scoped_lock lock(gWndProcListMapMutex);
+      prevWndProc = ogWndProcList[hWnd][0];
+    }
+    lresult = !isUnicode ?
+      CallWindowProcA(prevWndProc, hWnd, msg, wParam, lParam) :
+      CallWindowProcW(prevWndProc, hWnd, msg, wParam, lParam);
+  }
+  gRemixWndProcEntryExitCount -= 1;
+  return lresult;
 }
 
 void setWinProc(const HWND hwnd, const bool bForce) {
-  if (bForce || ogWndProc[hwnd] == nullptr) {
-    ogWndProc[hwnd] = reinterpret_cast<WNDPROC>(
-      SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(RemixWndProc))
-    );
-    DInputSetDefaultWindow(hwnd);
+  if (!bForce) {
+    std::scoped_lock lock(gWndProcListMapMutex);
+    if (ogWndProcList.find(hwnd) != ogWndProcList.end())
+      return;
   }
+  WNDPROC prevWndProc = reinterpret_cast<WNDPROC>(
+    SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(RemixWndProc))
+  );
+  {
+    std::scoped_lock lock(gWndProcListMapMutex);
+    // Remove previously stored window procedure to avoid duplicates
+    if (bForce) {
+      auto it = std::find(ogWndProcList[hwnd].begin(), ogWndProcList[hwnd].end(), prevWndProc);
+      if (it != ogWndProcList[hwnd].end()) {
+        ogWndProcList[hwnd].erase(it);
+      }
+    }
+    ogWndProcList[hwnd].push_front(prevWndProc);
+  }
+  DInputSetDefaultWindow(hwnd);
 }
 
 void removeWinProc(const HWND hwnd) {
-  if (auto proc = ogWndProc[hwnd]) {
-    SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(proc));
-    ogWndProc.erase(hwnd);
+  WNDPROC prevWndProc;
+  {
+    std::scoped_lock lock(gWndProcListMapMutex);
+    if (ogWndProcList.find(hwnd) != ogWndProcList.end()) {
+      int wndProcListLen = ogWndProcList[hwnd].size();
+      prevWndProc = ogWndProcList[hwnd][wndProcListLen - 1];
+      ogWndProcList[hwnd].clear();
+      ogWndProcList.erase(hwnd);
+    } 
+    else
+      return;
   }
+  SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(prevWndProc));
 }
 
 bool RemixAttach(HMODULE hModule) {

@@ -32,7 +32,6 @@
 using namespace bridge_util;
 
 extern std::unique_ptr<MessageChannelClient> gpRemixMessageChannel;
-extern std::unordered_map<HWND, WNDPROC> ogWndProc;
 extern bool ProcessMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 #define API_HOOK_DECL(x) inline static decltype(x)* Orig##x = nullptr

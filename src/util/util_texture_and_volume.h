@@ -28,6 +28,8 @@
 #include <algorithm>
 #include <functional>
 
+#define D3DFMT_ATI2 MAKEFOURCC('A', 'T', 'I', '2')
+
 namespace bridge_util {
   static uint32_t getBlockSize(const D3DFORMAT& format) {
     switch (format) {
@@ -37,6 +39,9 @@ namespace bridge_util {
     case D3DFMT_DXT4:
     case D3DFMT_DXT5:
       return 4;
+    // Dummy value to align IncomingPitch and SlicePitch with DXVK for D3DFMT_ATI2 format
+    case D3DFMT_ATI2:
+      return 1;
     default:
       return 1;
     }
@@ -52,6 +57,9 @@ namespace bridge_util {
     case D3DFMT_DXT4:
     case D3DFMT_DXT5:
       return 16;
+    // Dummy value to align IncomingPitch and SlicePitch with DXVK for D3DFMT_ATI2 format
+    case D3DFMT_ATI2:
+      return 1;  
 
     case D3DFMT_A32B32G32R32F:
       return 16;
@@ -125,6 +133,7 @@ namespace bridge_util {
       return 1;
 
     default:
+      Logger::err("Unknown D3DFORMAT passed for conversion: "+ std::to_string(static_cast<int>(format)));
       throw;
       return 0;
     }

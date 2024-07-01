@@ -22,6 +22,7 @@
 #include "remix_state.h"
 #include "log/log.h"
 #include "util_messagechannel.h"
+#include "di_hook.h"
 
 using namespace bridge_util;
 
@@ -33,9 +34,11 @@ void RemixState::init(MessageChannelBase& msgChannel) {
       if (wParam & 1) {
         m_state |= RemixStateBits::UIActive;
         Logger::info("Remix UI activated.");
+        DIHook::unsetCooperativeLevel();
       } else {
         m_state &= ~RemixStateBits::UIActive;
         Logger::info("Remix UI deactivated.");
+        DIHook::resetCooperativeLevel();
       }
       return true;
     });

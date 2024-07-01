@@ -54,3 +54,15 @@ extern void DInputHookDetach();
 extern void DInputSetDefaultWindow(HWND hwnd);
 
 extern void InputWinHooksReattach();
+
+namespace DIHook {
+  
+enum DIDeviceType {
+  Mouse,
+  Keyboard
+};
+
+extern void unsetCooperativeLevel();
+extern void resetCooperativeLevel();
+
+}

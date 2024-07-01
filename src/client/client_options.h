@@ -47,7 +47,7 @@ namespace ClientOptions {
   }
 
   inline bool getForwardDirectInputMessages() {
-    return bridge_util::Config::getOption<bool>("client.DirectInput.forwardMessages", true);
+    return bridge_util::Config::getOption<bool>("client.DirectInput.forwardMessages", false);
   }
 
   inline bool getDisableExclusiveInput() {

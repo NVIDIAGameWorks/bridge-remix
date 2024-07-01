@@ -35,7 +35,6 @@ class RemixState {
 
 public:
   static void init(bridge_util::MessageChannelBase& msgChannel);
-
   inline static bool isUIActive() {
     return m_state & RemixStateBits::UIActive;
   }

@@ -28,8 +28,10 @@
 #include "remix_state.h"
 #include "config/global_options.h"
 #include "util_detourtools.h"
+#include "di_hook.h"
 
 using namespace bridge_util;
+using namespace DIHook;
 
 extern std::unique_ptr<MessageChannelClient> gpRemixMessageChannel;
 extern bool ProcessMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -101,22 +103,25 @@ class DirectInputForwarder {
   void forwardMessage(const WndMsg& wm) const {
     const bool isMouse = wm.msg >= WM_MOUSEFIRST && wm.msg <= WM_MOUSELAST;
 
-    // Bail when input is not exclusive.
-    if (isMouse && !m_isMouseExclusive) {
-      ONCE(Logger::warn("Non-exclusive DirectInput mouse message skipped."));
-      return;
-    } else if (!isMouse && !m_isKeyboardExclusive) {
-      ONCE(Logger::warn("Non-exclusive DirectInput keyboard message skipped."));
-      return;
-    }
+    // Forward DI option is now a forcing option.
     if (!s_checkedForwardDirectInputMessagesOption) {
       s_cachedForwardDirectInputMessagesOption = ClientOptions::getForwardDirectInputMessages();
       s_checkedForwardDirectInputMessagesOption = true;
+      ONCE(Logger::warn("Forcing forwarding of DirectInput to WndProc messages."));
     }
     if (!s_cachedForwardDirectInputMessagesOption) {
-      return;
+      // Bail when input is not exclusive.
+      if (isMouse && !m_isMouseExclusive) {
+        ONCE(Logger::info("Non-exclusive DirectInput mouse message forwarding skipped."));
+        return;
+      } else if (!isMouse && !m_isKeyboardExclusive) {
+        ONCE(Logger::info("Non-exclusive DirectInput keyboard message forwarding skipped."));
+        return;
+      }
+      if (!RemixState::isUIActive()) {
+        return;
+      }
     }
-
     gpRemixMessageChannel->send(wm.msg, wm.wParam, wm.lParam);
   }
 
@@ -148,6 +153,10 @@ public:
   void setWindow(HWND hwnd) {
     m_hwnd = hwnd;
     updateWindowSize();
+  }
+
+  HWND getWindow() {
+    return m_hwnd;
   }
 
   void updateKeyState(LPBYTE KS) {
@@ -309,6 +318,10 @@ protected:
   inline static bool MouseDeviceStateUsed = false;
   inline static bool KeyboardDeviceStateUsed = false;
 
+  inline static constexpr DWORD kDefaultCooperativeLevel = DISCL_NONEXCLUSIVE | DISCL_FOREGROUND;
+  inline static std::array<DWORD,2> ogCooperativeLevel{kDefaultCooperativeLevel,
+                                                       kDefaultCooperativeLevel};
+
   inline static std::unordered_map<void*, bool> ExclusiveMode;
 
   static HRESULT STDMETHODCALLTYPE HookedSetProperty(void FAR* thiz,
@@ -332,6 +345,8 @@ protected:
     return hr;
   }
 
+  inline static constexpr auto kMouseDevType = DI8DEVCLASS_POINTER;
+  inline static constexpr auto kKeyboardDevType = DI8DEVCLASS_KEYBOARD;
   static HRESULT STDMETHODCALLTYPE HookedAcquire(void FAR* thiz) {
     LogStaticFunctionCall();
 
@@ -339,21 +354,22 @@ protected:
 
     gClientUsesDirectInput = true;
 
+    // TODO: support acquiring new mouse/reaqiuring (?)
     if (KeyboardDevice != thiz || MouseDevice != thiz) {
       IDirectInputDevice* di = (IDirectInputDevice*) thiz;
 
       DIDEVCAPS caps { sizeof(DIDEVCAPS) };
       di->GetCapabilities(&caps);
 
-      // Using ls nibble here to cover all DirectInput versions
-      if (KeyboardDevice != thiz && (caps.dwDevType & 0xf) == 3) {
+      // LSByte of dwDevType indicates device type
+      if (KeyboardDevice != thiz && (caps.dwDevType & 0xf) == kKeyboardDevType) {
         Logger::info("DirectInput keyboard acquired");
         KeyboardDevice = thiz;
 
         if (ExclusiveMode.count(thiz) > 0) {
           g_DInputForwarder.setKeyboardExclusive(ExclusiveMode[thiz]);
         }
-      } else if (MouseDevice != thiz && (caps.dwDevType & 0xf) == 2) {
+      } else if (MouseDevice != thiz && (caps.dwDevType & 0xf) == kMouseDevType) {
         Logger::info("DirectInput mouse acquired");
         MouseDevice = thiz;
 
@@ -374,7 +390,7 @@ protected:
     if (KeyboardDevice && KeyboardDevice == thiz) {
       Logger::info("DirectInput keyboard unacquired");
       KeyboardDevice = nullptr;
-    } else if (MouseDevice && MouseDevice != thiz) {
+    } else if (MouseDevice && MouseDevice == thiz) {
       Logger::info("DirectInput mouse unacquired");
       MouseDevice = nullptr;
     }
@@ -391,6 +407,12 @@ protected:
     Logger::info(format_string("DirectInput SetCooperativeLevel(%p, %d)",
                                hwnd, dwFlags));
 #endif
+
+    if (thiz == MouseDevice) {
+      ogCooperativeLevel[Mouse] = dwFlags;
+    } else if (thiz == KeyboardDevice) {
+      ogCooperativeLevel[Keyboard] = dwFlags;
+    }
 
     if (ClientOptions::getDisableExclusiveInput()) {
       dwFlags = DISCL_NONEXCLUSIVE | DISCL_FOREGROUND;
@@ -418,26 +440,35 @@ protected:
     switch (size) {
     case sizeof(DIMOUSESTATE):
       g_DInputForwarder.updateMouseState(static_cast<DIMOUSESTATE*>(data),
-                                         MouseAxisMode == DIPROPAXISMODE_ABS);
+                                          MouseAxisMode == DIPROPAXISMODE_ABS);
       MouseDeviceStateUsed = true;
+#ifdef _DEBUG
+      ONCE(Logger::info("DirectInput mouse state captured."));
+#endif
       break;
     case sizeof(DIMOUSESTATE2):
       g_DInputForwarder.updateMouseState(static_cast<DIMOUSESTATE2*>(data),
-                                         MouseAxisMode == DIPROPAXISMODE_ABS);
+                                          MouseAxisMode == DIPROPAXISMODE_ABS);
       MouseDeviceStateUsed = true;
+#ifdef _DEBUG
+      ONCE(Logger::info("DirectInput mouse(2) state captured."));
+#endif
       break;
     case 256:
       g_DInputForwarder.updateKeyState(static_cast<LPBYTE>(data));
       KeyboardDeviceStateUsed = true;
+#ifdef _DEBUG
+      ONCE(Logger::info("DirectInput keyboard state captured."));
+#endif
       break;
     }
 
-    // Remix UI is active - wipe input state
-    if (RemixState::isUIActive()) {
+    if (RemixState::isUIActive())  {
+      // Remix UI is active - wipe input state
       memset(data, 0, size);
     }
-
-    return DI_OK;
+      
+    return hr;
   }
 
   static HRESULT STDMETHODCALLTYPE HookedGetDeviceData(void FAR* thiz,
@@ -449,37 +480,40 @@ protected:
 
     const HRESULT hr = OrigGetDeviceData(thiz, cbObjectData, rgdod, pdwInOut, dwFlags);
 
-    if (rgdod && hr == DI_OK) {
-      if (MouseDevice == thiz && MouseDeviceStateUsed == false) {
-        for (uint32_t n = 0; n < *pdwInOut; n++) {
-          DIMOUSESTATE mstate { 0 };
+    if (rgdod) {
+      if(hr == DI_OK) {
+        if (MouseDevice == thiz && MouseDeviceStateUsed == false) {
+          for (uint32_t n = 0; n < *pdwInOut; n++) {
+            DIMOUSESTATE mstate { 0 };
 
-          if (rgdod[n].dwOfs == DIMOFS_X) {
-            mstate.lX = (LONG) rgdod[n].dwData;
-          } else if (rgdod[n].dwOfs == DIMOFS_Y) {
-            mstate.lY = (LONG) rgdod[n].dwData;
-          } else if (rgdod[n].dwOfs == DIMOFS_Z) {
-            mstate.lZ = (LONG) rgdod[n].dwData;
-          } else if (rgdod[n].dwOfs == DIMOFS_BUTTON0) {
-            mstate.rgbButtons[0] = rgdod[n].dwData;
-          } else if (rgdod[n].dwOfs == DIMOFS_BUTTON1) {
-            mstate.rgbButtons[1] = rgdod[n].dwData;
-          } else {
-            continue;
+            if (rgdod[n].dwOfs == DIMOFS_X) {
+              mstate.lX = (LONG) rgdod[n].dwData;
+            } else if (rgdod[n].dwOfs == DIMOFS_Y) {
+              mstate.lY = (LONG) rgdod[n].dwData;
+            } else if (rgdod[n].dwOfs == DIMOFS_Z) {
+              mstate.lZ = (LONG) rgdod[n].dwData;
+            } else if (rgdod[n].dwOfs == DIMOFS_BUTTON0) {
+              mstate.rgbButtons[0] = rgdod[n].dwData;
+            } else if (rgdod[n].dwOfs == DIMOFS_BUTTON1) {
+              mstate.rgbButtons[1] = rgdod[n].dwData;
+            } else {
+              continue;
+            }
+
+            g_DInputForwarder.updateMouseState(&mstate,
+                                              MouseAxisMode == DIPROPAXISMODE_ABS);
           }
-
-          g_DInputForwarder.updateMouseState(&mstate,
-                                             MouseAxisMode == DIPROPAXISMODE_ABS);
+        } else if (KeyboardDevice == thiz && KeyboardDeviceStateUsed == false) {
+          static BYTE data[256];
+          for (uint32_t n = 0; n < *pdwInOut; n++) {
+            data[rgdod[n].dwOfs] = rgdod[n].dwData;
+          }
+          g_DInputForwarder.updateKeyState(data);
         }
-      } else if (KeyboardDevice == thiz && KeyboardDeviceStateUsed == false) {
-        static BYTE data[256];
-        for (uint32_t n = 0; n < *pdwInOut; n++) {
-          data[rgdod[n].dwOfs] = rgdod[n].dwData;
-        }
-        g_DInputForwarder.updateKeyState(data);
       }
-
       // Remix UI is active - wipe input state
+      // Some games read this state even if hr != DI_OK
+      // So we need to wipe either way
       if (RemixState::isUIActive()) {
         memset(rgdod, 0, *pdwInOut * cbObjectData);
         *pdwInOut = 0;
@@ -527,6 +561,35 @@ protected:
     StringCchCatA(szSystemLib, sizeof(szSystemLib), "\\");
     StringCchCatA(szSystemLib, sizeof(szSystemLib), name);
     return szSystemLib;
+  }
+  
+public:
+  static void unsetCooperativeLevel() {
+    const auto hwnd = g_DInputForwarder.getWindow();
+    if(hwnd) {
+      if (MouseDevice != nullptr) {
+        OrigSetCooperativeLevel(MouseDevice, hwnd, kDefaultCooperativeLevel);
+        ExclusiveMode[MouseDevice] = false;
+      }
+      if (KeyboardDevice != nullptr) {
+        OrigSetCooperativeLevel(KeyboardDevice, hwnd, kDefaultCooperativeLevel);
+        ExclusiveMode[KeyboardDevice] = false;
+      }
+    }
+  }
+
+  static void resetCooperativeLevel() {
+    const auto hwnd = g_DInputForwarder.getWindow();
+    if(hwnd) {
+      if (MouseDevice != nullptr) {
+        OrigSetCooperativeLevel(MouseDevice, hwnd, ogCooperativeLevel[Mouse]);
+        ExclusiveMode[MouseDevice] = (ogCooperativeLevel[Mouse] & DISCL_EXCLUSIVE) != 0;
+      }
+      if (KeyboardDevice != nullptr) {
+        OrigSetCooperativeLevel(KeyboardDevice, hwnd, ogCooperativeLevel[Keyboard]);
+        ExclusiveMode[KeyboardDevice] = (ogCooperativeLevel[Keyboard] & DISCL_EXCLUSIVE) != 0;
+      }
+    }
   }
 };
 
@@ -1110,4 +1173,18 @@ void DInputSetDefaultWindow(HWND hwnd) {
   g_DInputForwarder.setWindow(hwnd);
   g_DInputForwarder.setKeyboardExclusive(true);
   g_DInputForwarder.setMouseExclusive(true);
+}
+
+namespace DIHook {
+
+void unsetCooperativeLevel() {
+  DirectInput7Hook::unsetCooperativeLevel();
+  DirectInput8Hook::unsetCooperativeLevel();
+}
+
+void resetCooperativeLevel() {
+  DirectInput7Hook::resetCooperativeLevel();
+  DirectInput8Hook::resetCooperativeLevel();
+}
+
 }

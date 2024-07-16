@@ -49,6 +49,7 @@ d3d9_src = files([
   'd3d9_volumetexture.cpp',
   'di_hook.cpp',
   'pch.cpp',
+  'remix_api.cpp',
   'remix_state.cpp',
 ])
 
@@ -80,6 +81,7 @@ d3d9_header = files([
   'framework.h',
   'lockable_buffer.h',
   'pch.h',
+  'remix_api.h',
   'remix_state.h',
   'resource.h',
   'shadow_map.h',
@@ -90,13 +92,14 @@ d3d9_def = files([
 ])
 
 detours_include_path = include_directories('../../ext/Detours/src')
+remixapi_include_path = include_directories('../api')
 
 thread_dep = dependency('threads')
 
 d3d9_dll = shared_library('d3d9', d3d9_src, d3d9_res, d3d9_header,
   sources             : [ bridge_version ],
   dependencies        : [ thread_dep, util_dep, lib_version, lib_version, lib_commCtrl, tracy_dep ],
-  include_directories : [ bridge_include_path, util_include_path, detours_include_path ],
+  include_directories : [ bridge_include_path, util_include_path, detours_include_path, remixapi_include_path ],
   install             : true,
   vs_module_defs      : 'd3d9_lss.def')
 

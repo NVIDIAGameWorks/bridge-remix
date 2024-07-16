@@ -46,6 +46,8 @@
 #include <wingdi.h>
 #include <assert.h>
 
+ #include "remix_api.h"
+
 #define GET_PRES_PARAM() (m_pSwapchain->getPresentationParameters())
 
 #define SetShaderConst(func, StartRegister, pConstantData, Count, size, currentUID) \
@@ -1119,6 +1121,10 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::EndScene() {
     if (gSceneState == SceneInProgress) {
       gSceneState = SceneEnded;
     }
+  }
+
+  if (remix_api::interfaceInitialized && remix_api::interfaceGameCallback) {
+    remix_api::interfaceGameCallback();
   }
 
   UID currentUID = 0;

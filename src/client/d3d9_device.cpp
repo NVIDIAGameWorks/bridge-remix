@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -37,7 +37,7 @@
 #include "d3d9_volumetexture.h"
 #include "shadow_map.h"
 #include "client_options.h"
-
+#include "swapchain_map.h"
 #include "config/global_options.h"
 
 #include "util_bridge_assert.h"
@@ -57,6 +57,8 @@
   }
 
 extern NamedSemaphore* gpPresent;
+extern std::mutex gSwapChainMapMutex;
+extern SwapChainMap gSwapChainMap;
 
 template<bool EnableSync>
 void Direct3DDevice9Ex_LSS<EnableSync>::onDestroy() {
@@ -439,6 +441,8 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Reset(D3DPRESENT_PARAMETERS* pPresent
 
     // Reset swapchain and link server backbuffer/depth buffer after the server reset its swapchain, or we will link to the old backbuffer/depth resources
     initImplicitObjects(presParam);
+    // Keeping a track of previous present parameters, to detect and handle mode changes
+    m_previousPresentParams = *pPresentationParameters;
   }
   return res;
 }
@@ -3706,7 +3710,18 @@ void Direct3DDevice9Ex_LSS<EnableSync>::initImplicitObjects(const D3DPRESENT_PAR
 template<bool EnableSync>
 void Direct3DDevice9Ex_LSS<EnableSync>::initImplicitSwapchain(const D3DPRESENT_PARAMETERS& presParam) {
   auto* const pLssSwapChain = trackWrapper(new Direct3DSwapChain9_LSS(this, presParam));
+  // To have a more consistent display when toggling windowed mode
+  if (presParam.Windowed != m_previousPresentParams.Windowed && !(m_createParams.BehaviorFlags & D3DCREATE_NOWINDOWCHANGES)) {
+    SetGammaRamp(0, 0, &m_gammaRamp);
+  }
   m_pSwapchain = pLssSwapChain;
+  m_pSwapchain->reset(presParam);
+  {
+    gSwapChainMapMutex.lock();
+    gSwapChainMap[m_pSwapchain->getPresentationParameters().hDeviceWindow] = { m_pSwapchain->getPresentationParameters(), this->getCreateParams(),  m_pSwapchain->getId()};
+    gSwapChainMapMutex.unlock();
+  }
+
   m_implicitRefCnt++;
 }
 

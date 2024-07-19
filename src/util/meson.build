@@ -1,5 +1,5 @@
 #############################################################################
-# Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -29,6 +29,7 @@ util_src = files([
 	'util_semaphore.cpp',
 	'util_sharedheap.cpp',
 	'util_sharedmemory.cpp',
+	'util_monitor.cpp',
 	'log/log.cpp',
 	'config/config.cpp',
 	'config/global_options.cpp',
@@ -62,6 +63,7 @@ util_header = files([
 	'util_sharedmemory.h',
 	'util_singleton.h',
 	'util_texture_and_volume.h',
+	'util_monitor.h',
 	'log/log.h',
 	'config/config.h',
 	'config/global_options.h',

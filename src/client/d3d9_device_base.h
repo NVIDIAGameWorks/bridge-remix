@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -46,9 +46,24 @@ public:
   static constexpr size_t kNumStageSamplers = caps::MaxTexturesPS + caps::MaxTexturesVS + 1;
   static constexpr size_t kMaxTexStageStateTypes = 18;
   static constexpr size_t kMaxStageSamplerStateTypes = D3DSAMP_DMAPOFFSET + 1;
+  static constexpr uint32_t NumControlPoints = 256;
+
+  /*
+  * Some of the following lines are adapted from source in the DXVK repo
+  * at https://github.com/doitsujin/dxvk/blob/master/src/d3d9/d3d9_swapchain.cpp
+  */
+  static uint16_t MapGammaControlPoint(float x) {
+    if (x < 0.0f) x = 0.0f;
+    if (x > 1.0f) x = 1.0f;
+    return uint16_t(65535.0f * x);
+  }
 
   const D3DDEVICE_CREATION_PARAMETERS& getCreateParams() const {
     return m_createParams;
+  }
+
+  const D3DPRESENT_PARAMETERS& getPreviousPresentParameter() const {
+    return m_previousPresentParams;
   }
 
   struct ShaderConstants {
@@ -125,7 +140,7 @@ protected:
                             const D3DPRESENT_PARAMETERS& presParams,
                             const D3DDISPLAYMODEEX* const pFullscreenDisplayMode,
                             HRESULT& hresultOut);
-
+  void InitRamp();
   using ShaderType = ShaderConstants::ShaderType;
   using ConstantType = ShaderConstants::ConstantType;
 
@@ -160,6 +175,7 @@ protected:
   const D3DDEVICE_CREATION_PARAMETERS m_createParams;
 
   D3DGAMMARAMP m_gammaRamp;
+  D3DPRESENT_PARAMETERS m_previousPresentParams;
   std::unordered_map<UINT, PALETTEENTRY> m_palleteEntries;
   UINT m_curTexPallete;
   BOOL m_bSoftwareVtxProcessing;

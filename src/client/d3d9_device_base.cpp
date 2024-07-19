@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -66,6 +66,10 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
 
   m_hWnd = createParams.hFocusWindow ? createParams.hFocusWindow : presParams.hDeviceWindow;
   setWinProc(m_hWnd);
+  m_previousPresentParams = presParams;
+  DWORD customBehaviorFlags = createParams.BehaviorFlags | D3DCREATE_NOWINDOWCHANGES;
+  InitRamp();
+  
   UID currentUID = 0;
   {
     ModuleClientCommand c(m_ex ? Commands::IDirect3D9Ex_CreateDeviceEx : Commands::IDirect3D9Ex_CreateDevice, getId());
@@ -73,7 +77,7 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
     c.send_many(           createParams.AdapterOrdinal,
                            createParams.DeviceType,
                 (uint32_t) createParams.hFocusWindow,
-                           createParams.BehaviorFlags);
+                           customBehaviorFlags);
     if (m_ex) {
       if (!pFullscreenDisplayMode) {
         Logger::err("A null pFullscreenDisplayMode was passed to IDirect3D9Ex::CreateDeviceEx().");
@@ -106,4 +110,14 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   }
   Logger::debug("...server-side D3D9 device successfully created...");
   Logger::debug("...Device successfully created!");
+}
+
+void BaseDirect3DDevice9Ex_LSS::InitRamp() {
+  for (uint32_t i = 0; i < NumControlPoints; i++) {
+    DWORD identity = DWORD(MapGammaControlPoint(float(i) / float(NumControlPoints - 1)));
+
+    m_gammaRamp.red[i] = identity;
+    m_gammaRamp.green[i] = identity;
+    m_gammaRamp.blue[i] = identity;
+  }
 }

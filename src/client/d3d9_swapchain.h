@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2023-2024, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,17 +23,26 @@
 
 #include "d3d9_resource.h"
 #include "base.h"
+#include "util_monitor.h"
 #include <algorithm>
 
 class Direct3DSwapChain9_LSS: public Direct3DContainer9_LSS<D3DBase<IDirect3DSwapChain9>, Direct3DSurface9_LSS> {
   D3DPRESENT_PARAMETERS m_presParam;
-
+  HMONITOR m_monitor = nullptr;
+  HWND m_window = nullptr;
   void onDestroy() override;
+  DWORD m_behaviorFlag;
 public:
   Direct3DSwapChain9_LSS(BaseDirect3DDevice9Ex_LSS* const pDevice,
                          const D3DPRESENT_PARAMETERS& presParam)
     : Direct3DContainer9_LSS(nullptr, pDevice)
     , m_presParam(sanitizePresentationParameters(presParam, pDevice->getCreateParams())) {
+    m_window = m_presParam.hDeviceWindow;
+    if (!presParam.Windowed) {
+      m_monitor = bridge_util::GetDefaultMonitor();
+    }
+    m_behaviorFlag = pDevice->getCreateParams().BehaviorFlags;
+
     m_children.resize(m_presParam.BackBufferCount);
     {
       ClientMessage c(Commands::IDirect3DDevice9Ex_LinkSwapchain, pDevice->getId());
@@ -100,10 +109,17 @@ public:
     return m_presParam;
   }
 
+  const D3DDEVICE_CREATION_PARAMETERS& getDeviceCreationParameters() {
+    return m_pDevice->getCreateParams();
+  }
+
   void setPresentationParameters(const D3DPRESENT_PARAMETERS& presParam) {
     m_presParam = sanitizePresentationParameters(presParam, m_pDevice->getCreateParams());
   }
 
+  ~Direct3DSwapChain9_LSS();
+  HRESULT changeDisplayMode(const D3DPRESENT_PARAMETERS& presParams);
+  HRESULT reset(const D3DPRESENT_PARAMETERS &pPresentParams);
   /*** IUnknown methods ***/
   STDMETHOD(QueryInterface)(THIS_ REFIID riid, void** ppvObj);
   STDMETHOD_(ULONG, AddRef)(THIS);

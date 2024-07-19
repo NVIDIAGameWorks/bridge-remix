@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,10 +24,120 @@
 #include "d3d9_swapchain.h"
 #include "d3d9_surface.h"
 #include "d3d9_surfacebuffer_helper.h"
+#include "swapchain_map.h"
+
+extern std::mutex gSwapChainMapMutex;
+extern SwapChainMap gSwapChainMap;
 
 /*
  * Direct3DSwapChain9_LSS Interface Implementation
  */
+
+HRESULT Direct3DSwapChain9_LSS::changeDisplayMode(const D3DPRESENT_PARAMETERS& presParams) {
+  /*
+  * Some of the following lines are adapted from source in the DXVK repo
+  * at https://github.com/doitsujin/dxvk/blob/master/src/d3d9/d3d9_swapchain.cpp
+  */
+
+  //Change monitor's resolution
+  DEVMODEW devMode = { };
+  devMode.dmSize = sizeof(devMode);
+  devMode.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT | DM_BITSPERPEL;
+  devMode.dmPelsWidth = presParams.BackBufferWidth;
+  devMode.dmPelsHeight = presParams.BackBufferHeight;
+  devMode.dmBitsPerPel = getBytesFromFormat(presParams.BackBufferFormat) * 8;
+
+  if (presParams.FullScreen_RefreshRateInHz != 0) {
+    devMode.dmFields |= DM_DISPLAYFREQUENCY;
+    devMode.dmDisplayFrequency = presParams.FullScreen_RefreshRateInHz;
+  }
+
+  HMONITOR monitor = GetDefaultMonitor();
+
+  if (!bridge_util::SetMonitorDisplayMode(monitor, &devMode)) {
+    Logger::warn("Error in setting monitor display mode!");
+    return D3DERR_NOTAVAILABLE;
+  }
+  return D3D_OK;
+}
+
+Direct3DSwapChain9_LSS::~Direct3DSwapChain9_LSS() {
+  if (m_monitor) {
+    RestoreMonitorDisplayMode();
+    m_monitor = nullptr;
+  }
+  gSwapChainMapMutex.lock();
+  if (gSwapChainMap.find(m_window) != gSwapChainMap.end()) {
+    if (gSwapChainMap[m_window].swapChainId == this->getId()) {
+      gSwapChainMap.erase(m_window);
+    }
+  }
+  gSwapChainMapMutex.unlock();
+}
+
+HRESULT Direct3DSwapChain9_LSS::reset(const D3DPRESENT_PARAMETERS &pPresentParams) {
+  /*
+  * Some of the following lines are adapted from source in the DXVK repo
+  * at https://github.com/doitsujin/dxvk/blob/master/src/wsi/win32/wsi_window_win32.cpp
+  */
+
+  D3DPRESENT_PARAMETERS prevPresentParams = m_pDevice->getPreviousPresentParameter();
+  bool changeFullscreen = (prevPresentParams.Windowed != pPresentParams.Windowed);
+  const bool modifyWindow = !(m_behaviorFlag & D3DCREATE_NOWINDOWCHANGES);
+  if (pPresentParams.Windowed) {
+    if (modifyWindow && changeFullscreen) {
+      if (!IsWindow(m_window)) {
+        return D3DERR_INVALIDCALL;
+      }
+
+      if (m_monitor == nullptr || !bridge_util::RestoreMonitorDisplayMode())
+        Logger::warn("Failed to restore display mode");
+
+      m_monitor = nullptr;
+    }
+    if (modifyWindow && (
+      pPresentParams.BackBufferWidth != prevPresentParams.BackBufferWidth ||
+      pPresentParams.BackBufferHeight != prevPresentParams.BackBufferHeight)) {
+
+      // Adjust window position and size
+      RECT newRect = { 0, 0, 0, 0 };
+      RECT oldRect = { 0, 0, 0, 0 };
+      ::GetWindowRect(m_window, &oldRect);
+      ::MapWindowPoints(HWND_DESKTOP, ::GetParent(m_window), reinterpret_cast<POINT*>(&oldRect), 1);
+      ::SetRect(&newRect, 0, 0, pPresentParams.BackBufferWidth, pPresentParams.BackBufferHeight);
+      ::AdjustWindowRectEx(&newRect,
+        ::GetWindowLongW(m_window, GWL_STYLE), FALSE,
+        ::GetWindowLongW(m_window, GWL_EXSTYLE));
+      ::SetRect(&newRect, 0, 0, newRect.right - newRect.left, newRect.bottom - newRect.top);
+      ::OffsetRect(&newRect, oldRect.left, oldRect.top);
+      // Should use SetWindowPos rather than MoveWindow to avoid cross process deadlock
+      ::SetWindowPos(m_window, nullptr, newRect.left, newRect.top,
+          newRect.right - newRect.left, newRect.bottom - newRect.top, SWP_NOACTIVATE | SWP_NOZORDER | SWP_ASYNCWINDOWPOS);
+      Logger::info(format_string("Window's position is reset with change in backbuffer metrics. PreviousBackBufferWidth: %d, PreviousBackBufferHeight: %d, CurrentBackBufferWidth: %d, CurrentBackBufferHeight: %d", prevPresentParams.BackBufferWidth, prevPresentParams.BackBufferHeight, pPresentParams.BackBufferWidth, pPresentParams.BackBufferHeight));
+    }
+  }
+  else {
+    if (modifyWindow) {
+      if (FAILED(changeDisplayMode(pPresentParams))) {
+        Logger::warn("Failed to change display mode");
+        return D3DERR_INVALIDCALL;
+      }
+
+      if (changeFullscreen) {
+        m_monitor = bridge_util::GetDefaultMonitor();
+      }
+      // Move the window so that it covers the entire output
+      RECT rect;
+      bridge_util::GetMonitorRect(bridge_util::GetDefaultMonitor(), &rect);
+
+      ::SetWindowPos(m_window, HWND_TOP,
+        rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top,
+        SWP_FRAMECHANGED | SWP_SHOWWINDOW | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+      Logger::info(format_string("Window's position is reset. New window's position - Left: %d, Top: %d, Right: %d, Bottom: %d", rect.left, rect.top, rect.right, rect.bottom));
+    }
+  }
+  return D3D_OK;
+}
 
 HRESULT Direct3DSwapChain9_LSS::QueryInterface(REFIID riid, LPVOID* ppvObj) {
   LogFunctionCall();

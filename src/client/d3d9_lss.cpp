@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,7 +27,8 @@
 #include "d3d9_surface.h"
 #include "d3d9_texture.h"
 #include "d3d9_cubetexture.h"
-
+#include "d3d9_swapchain.h"
+#include "swapchain_map.h"
 #include "client_options.h"
 #include "config/config.h"
 #include "config/global_options.h"
@@ -111,6 +112,8 @@ Process* gpServer = nullptr;
 NamedSemaphore* gpPresent = nullptr;
 ShadowMap gShadowMap;
 std::mutex gShadowMapMutex;
+SwapChainMap gSwapChainMap;
+std::mutex gSwapChainMapMutex;
 std::unordered_map<HWND, std::deque<WNDPROC>> ogWndProcList;
 std::mutex gWndProcListMapMutex;
 std::unique_ptr<MessageChannelClient> gpRemixMessageChannel;  // Message channel with the Remix renderer
@@ -494,20 +497,58 @@ LRESULT WINAPI RemixWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         CallWindowProcW(prevWndProc, hWnd, msg, wParam, lParam);
     }
   }
-  else if (ProcessMessage(hWnd, msg, wParam, lParam)) {
-    lresult = !isUnicode ?
-      DefWindowProcA(hWnd, msg, wParam, lParam) :
-      DefWindowProcW(hWnd, msg, wParam, lParam);
-  }
   else {
-    WNDPROC prevWndProc;
-    {
-      std::scoped_lock lock(gWndProcListMapMutex);
-      prevWndProc = ogWndProcList[hWnd][0];
+    if (msg == WM_ACTIVATEAPP || msg == WM_SIZE || msg == WM_DESTROY) {
+      gSwapChainMapMutex.lock();
+      if (gSwapChainMap.find(hWnd) != gSwapChainMap.end()) {
+        /*
+        * The following lines are adapted from source in the DXVK repo
+        * at https://github.com/doitsujin/dxvk/blob/master/src/d3d9/d3d9_window.cpp
+        */
+        if (msg == WM_DESTROY) {
+          gSwapChainMap.erase(hWnd);
+        } else {
+          struct WindowDisplayData data = gSwapChainMap[hWnd];
+          D3DPRESENT_PARAMETERS presParams = data.presParam;
+          if (msg == WM_ACTIVATEAPP && !presParams.Windowed && !(msg == WM_NCCALCSIZE && wParam == TRUE)) {
+            D3DDEVICE_CREATION_PARAMETERS create_parms = data.createParam;
+            if (!(create_parms.BehaviorFlags & D3DCREATE_NOWINDOWCHANGES)) {
+              if (wParam) {
+                RECT rect;
+                bridge_util::GetMonitorRect(bridge_util::GetDefaultMonitor(), &rect);
+                SetWindowPos(hWnd, HWND_TOP, rect.left, rect.top, presParams.BackBufferWidth, presParams.BackBufferHeight,
+                  SWP_NOACTIVATE | SWP_NOZORDER | SWP_ASYNCWINDOWPOS);
+                Logger::info(format_string("Window's position is reset. Left: %d, Top: %d, Width: %d, Height: %d", rect.left, rect.top, presParams.BackBufferWidth, presParams.BackBufferHeight));
+              } else {
+                if (IsWindowVisible(hWnd))
+                  ShowWindowAsync(hWnd, SW_MINIMIZE);
+              }
+            }
+          } else if (msg == WM_SIZE) {
+            D3DDEVICE_CREATION_PARAMETERS create_parms = data.createParam;
+
+            if (!(create_parms.BehaviorFlags & D3DCREATE_NOWINDOWCHANGES) && !IsIconic(hWnd)) {
+              PostMessageW(hWnd, WM_ACTIVATEAPP, 1, GetCurrentThreadId());
+            }
+          }
+        }
+      }
+      gSwapChainMapMutex.unlock();
     }
-    lresult = !isUnicode ?
-      CallWindowProcA(prevWndProc, hWnd, msg, wParam, lParam) :
-      CallWindowProcW(prevWndProc, hWnd, msg, wParam, lParam);
+    if (ProcessMessage(hWnd, msg, wParam, lParam)) {
+      lresult = !isUnicode ?
+        DefWindowProcA(hWnd, msg, wParam, lParam) :
+        DefWindowProcW(hWnd, msg, wParam, lParam);
+    } else {
+      WNDPROC prevWndProc;
+      {
+        std::scoped_lock lock(gWndProcListMapMutex);
+        prevWndProc = ogWndProcList[hWnd][0];
+      }
+      lresult = !isUnicode ?
+        CallWindowProcA(prevWndProc, hWnd, msg, wParam, lParam) :
+        CallWindowProcW(prevWndProc, hWnd, msg, wParam, lParam);
+    }
   }
   gRemixWndProcEntryExitCount -= 1;
   return lresult;

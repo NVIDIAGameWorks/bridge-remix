@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -39,6 +39,7 @@
 #include "util_sharedheap.h"
 #include "util_sharedmemory.h"
 #include "util_texture_and_volume.h"
+#include "util_version.h"
 
 #include "log/log.h"
 #include "config/config.h"
@@ -51,6 +52,7 @@
 #include <assert.h>
 #include <map>
 #include <atomic>
+#include <array>
 
 using namespace Commands;
 using namespace bridge_util;
@@ -2792,6 +2794,28 @@ bool InitializeD3D() {
   }
 
   CheckD3D9Type(ghModule);
+  if (bDxvkModuleLoaded) {
+    auto queryFeatureVersion = (version::QueryFunc)GetProcAddress(ghModule, version::QueryFuncName);
+    if(queryFeatureVersion == NULL) {
+      Logger::err(format_string("Unable to resolve %s, may be the result of an outdated Remix DXVK *or* loading vanilla DXVK.\n", version::QueryFuncName));
+      return true; // Not necessarily fatal
+    }
+    std::array<uint64_t,version::nFeatures> dxvkVersions;
+    for(size_t feat = 0; feat < version::nFeatures; ++feat) {
+      dxvkVersions[feat] = queryFeatureVersion((version::Feature)feat);
+    }
+    bool bMismatchDetected = false;
+    if(version::messageChannelV != dxvkVersions[version::MessageChannel]) {
+      Logger::err(format_string("MessageChannel version mismatch! Bridge: 0x%X, DXVK: 0x%X\n",
+                                version::messageChannelV, dxvkVersions[version::MessageChannel]));
+      bMismatchDetected = true;
+    }
+    if(bMismatchDetected) {
+      Logger::warn("One or more functional version mismatches detected. If you experience problems, consider updating either bridge or dxvk.");
+    } else {
+      Logger::info("Feature version parity confirmed!");
+    }
+  }
 
   return true;
 }

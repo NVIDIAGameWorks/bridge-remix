@@ -63,6 +63,7 @@ util_header = files([
 	'util_sharedmemory.h',
 	'util_singleton.h',
 	'util_texture_and_volume.h',
+	'util_version.h',
 	'util_monitor.h',
 	'log/log.h',
 	'config/config.h',

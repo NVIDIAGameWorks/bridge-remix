@@ -26,6 +26,25 @@ extern std::unordered_map<uint32_t, IDirect3DSwapChain9*> gpD3DSwapChains;
 
 extern std::mutex gLock;
 
+namespace remix_api {
+  remixapi_Interface g_remix = {};
+  bool g_remix_initialized = false;
+  HMODULE g_remix_dll = nullptr;
+  IDirect3DDevice9Ex* g_device = nullptr;
+  std::mutex g_device_mutex;
+
+  IDirect3DDevice9Ex* getDevice() {
+    std::scoped_lock device_lock(g_device_mutex);
+    if (g_device) {
+      Logger::info("[RemixApi] getDevice(): success");
+      return g_device;
+    }
+
+    Logger::info("[RemixApi] getDevice(): failed");
+    return nullptr;
+  }
+}
+
 #define PULL(type, name) const auto& name = (type)ModuleBridge::get_data()
 #define PULL_I(name) PULL(INT, name)
 #define PULL_U(name) PULL(UINT, name)
@@ -366,6 +385,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
       } else {
         Logger::info("Server side D3D9 DeviceEx created successfully!");
         gpD3DDevices[pHandle] = pD3DDevice;
+        remix_api::g_device = pD3DDevice;
       }
 
       // Send response back to the client
@@ -397,6 +417,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
       } else {
         Logger::info("Server side D3D9 Device created successfully!");
         gpD3DDevices[pHandle] = (IDirect3DDevice9Ex*) pD3DDevice;
+        remix_api::g_device = (IDirect3DDevice9Ex*) pD3DDevice;
       }
 
       // Send response back to the client

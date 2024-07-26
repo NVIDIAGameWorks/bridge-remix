@@ -67,6 +67,10 @@ namespace ClientOptions {
     return bridge_util::Config::getOption<bool>("client.enableDpiAwareness", true);
   }
 
+  inline bool getExposeRemixApi() {
+    return bridge_util::Config::getOption<bool>("client.exposeRemixApi", false);
+  }
+
   // If set, the space for data for dynamic buffer updates will be preallocated on data channel
   // and redundant copy will be avioded. However, because D3D applications are not obliged
   // to write the entire locked region this optimization is NOT considered safe and may

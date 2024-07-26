@@ -420,7 +420,7 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Reset(D3DPRESENT_PARAMETERS* pPresent
     ResetState();
     const auto presParam = Direct3DSwapChain9_LSS::sanitizePresentationParameters(*pPresentationParameters, getCreateParams());
     // Add a hook into this window if we don't already have it.
-    setWinProc(presParam.hDeviceWindow);
+    setWinProc(getWinProcHwnd());
     // Tell Server to do the Reset
     size_t currentUID = 0;
     {
@@ -494,16 +494,8 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Present(CONST RECT* pSourceRect, CONS
   }
 
   // Seeing this in the log could indicate the game is sending inputs to a different window
-  extern std::unordered_map<HWND, std::deque<WNDPROC>> ogWndProcList;
-  extern std::mutex gWndProcListMapMutex;
-  if (hDestWindowOverride != NULL) {
-    std::scoped_lock lock(gWndProcListMapMutex);
-    if(ogWndProcList.find(hDestWindowOverride) == ogWndProcList.end())
-      ONCE(Logger::info("Detected unhooked winproc on Direct3DDevice9::Present"));
-  }
-  const auto hWnd = (hDestWindowOverride != NULL) ? hDestWindowOverride : m_hWnd;
-  if(GetWindowLongPtr(hWnd,GWLP_WNDPROC) != reinterpret_cast<LONG_PTR>(RemixWndProc)) {
-    setWinProc(hWnd, true);
+  if(GetWindowLongPtr(getWinProcHwnd(),GWLP_WNDPROC) != reinterpret_cast<LONG_PTR>(RemixWndProc)) {
+    setWinProc(getWinProcHwnd(), true);
     Logger::warn("Detected non-Remix winproc on Present(), which is indicative of game resetting winproc after device creation. Remix winproc has been re-hooked. If this warning persists and remix GUI is not interactable, further intervention may be necessary.");
   }
 

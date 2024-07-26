@@ -26,6 +26,7 @@
 
 #include "config/config.h"
 #include "log/log.h"
+#include "di_hook.h"
 
 #include <d3d9.h>
 
@@ -46,12 +47,16 @@ namespace ClientOptions {
     return bridge_util::Config::getOption<bool>("client.overrideCustomWinHooks", false);
   }
 
-  inline bool getForwardDirectInputMessages() {
-    return bridge_util::Config::getOption<bool>("client.DirectInput.forwardMessages", false);
-  }
-
   inline bool getDisableExclusiveInput() {
     return bridge_util::Config::getOption<bool>("client.DirectInput.disableExclusiveInput", false);
+  }
+
+  inline DI::ForwardPolicy getForwardDirectInputMousePolicy() {
+    return (DI::ForwardPolicy)bridge_util::Config::getOption<int>("client.DirectInput.forward.mousePolicy", DI::RemixUIActive);
+  }
+  
+  inline DI::ForwardPolicy getForwardDirectInputKeyboardPolicy() {
+    return (DI::ForwardPolicy)bridge_util::Config::getOption<int>("client.DirectInput.forward.keyboardPolicy", DI::RemixUIActive);
   }
 
   inline bool getForceWindowed() {

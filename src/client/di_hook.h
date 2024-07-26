@@ -21,6 +21,8 @@
  */
 #pragma once
 
+#include <windows.h>
+
 inline static bool isInputMessage(uint32_t msg) {
   switch (msg) {
   case WM_KEYDOWN:
@@ -55,11 +57,20 @@ extern void DInputSetDefaultWindow(HWND hwnd);
 
 extern void InputWinHooksReattach();
 
-namespace DIHook {
+namespace DI {
   
-enum DIDeviceType {
-  Mouse,
-  Keyboard
+enum DeviceType {
+  Mouse    = 0,
+  Keyboard = 1,
+  kNumDeviceTypes
+};
+
+enum ForwardPolicy {
+  Never           = 0,
+  RemixUIInactive = 1,
+  RemixUIActive   = 2,
+  Always          = 3,
+  kNumForwardPolicies
 };
 
 extern void unsetCooperativeLevel();

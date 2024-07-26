@@ -34,11 +34,11 @@ void RemixState::init(MessageChannelBase& msgChannel) {
       if (wParam & 1) {
         m_state |= RemixStateBits::UIActive;
         Logger::info("Remix UI activated.");
-        DIHook::unsetCooperativeLevel();
+        DI::unsetCooperativeLevel();
       } else {
         m_state &= ~RemixStateBits::UIActive;
         Logger::info("Remix UI deactivated.");
-        DIHook::resetCooperativeLevel();
+        DI::resetCooperativeLevel();
       }
       return true;
     });

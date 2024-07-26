@@ -140,7 +140,13 @@ protected:
                             const D3DPRESENT_PARAMETERS& presParams,
                             const D3DDISPLAYMODEEX* const pFullscreenDisplayMode,
                             HRESULT& hresultOut);
+
+  HWND getFocusHwnd() const { return m_createParams.hFocusWindow; }
+  HWND getPresentationHwnd() const { return m_presParams.hDeviceWindow; }
+  HWND getWinProcHwnd() const { return getPresentationHwnd() ? getPresentationHwnd() : getFocusHwnd(); }
+
   void InitRamp();
+  
   using ShaderType = ShaderConstants::ShaderType;
   using ConstantType = ShaderConstants::ConstantType;
 
@@ -173,6 +179,7 @@ protected:
   const bool m_ex;
   Direct3D9Ex_LSS* const m_pDirect3D = nullptr;
   const D3DDEVICE_CREATION_PARAMETERS m_createParams;
+  const D3DPRESENT_PARAMETERS m_presParams;
 
   D3DGAMMARAMP m_gammaRamp;
   D3DPRESENT_PARAMETERS m_previousPresentParams;
@@ -184,7 +191,6 @@ protected:
   DWORD m_FVF;
   INT m_gpuThreadPriority;
   UINT m_maxFrameLatency;
-  HWND m_hWnd = NULL;
 
   struct StateCaptureDirtyFlags {
     // Vertex Decl

@@ -22,7 +22,7 @@
 
 project(
   'bridge', ['c', 'cpp'],
-  version : 'remix-0.5.4-rc2',
+  version : 'remix-0.5.4',
   meson_version : '>= 0.58',
   default_options : ['werror=true', 'b_vscrt=static_from_buildtype', 'cpp_std=vc++17']
 )

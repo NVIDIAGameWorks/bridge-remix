@@ -66,6 +66,7 @@ util_header = files([
 	'util_version.h',
 	'util_monitor.h',
 	'log/log.h',
+	'log/log_strings.h',
 	'config/config.h',
 	'config/global_options.h',
 ])

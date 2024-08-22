@@ -20,6 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 #include "util_bridgecommand.h"
+#include "log/log_strings.h"
 
 namespace {
   DWORD get_default_timeout() {
@@ -67,8 +68,7 @@ DECL_BRIDGE_FUNC(void, syncDataQueue, size_t expectedMemUsage, bool posResetOnLa
     Logger::warn("Data Queue overwrite condition triggered");
     // Check to see if there is even enough space to ever succeed in pushing all the data
     if ((expectedMemUsage + (currClientDataPos >= s_curBatchStartPos ? currClientDataPos - s_curBatchStartPos : currClientDataPos + totalSize - s_curBatchStartPos)) > totalSize) {
-      Logger::err("Command's data batch size is too large and overwrite could not be prevented!");
-      throw std::exception("Command's data batch size is too large and overwrite could not be prevented!");
+      Logger::errLogMessageBoxAndExit(std::string(logger_strings::OutOfBufferMemory) + std::string(logger_strings::OutOfBufferMemory1) + logger_strings::bufferNameToOption(s_pWriterChannel->data->getName()));
     }
     // Wait for the server to access the data at the above postion
     const auto maxRetries = GlobalOptions::getCommandRetries();
@@ -281,8 +281,7 @@ DECL_COMMAND_FUNC(,Command,const Commands::D3D9Command command,
 
   assert(!s_pWriterChannel->pbCmdInProgress->load());
   if (s_pWriterChannel->pbCmdInProgress->load()) {
-    Logger::err("Multiple active Command instances detected!");
-    throw std::exception("Multiple active Command instances detected!");
+    Logger::errLogMessageBoxAndExit(logger_strings::MultipleActiveCommands);
   }
   // Only start a data batch if the bridge is actually enabled, otherwise this becomes a no-op
   if (gbBridgeRunning) {

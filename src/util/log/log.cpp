@@ -131,6 +131,12 @@ namespace bridge_util {
     get().emitMsg(LogLevel::Error, message);
   }
 
+  void Logger::errLogMessageBoxAndExit(const std::string& message) {
+    Logger::err(message);
+    MessageBox(nullptr, message.c_str(), "RTX Remix Bridge Error!", MB_OK | MB_TOPMOST | MB_TASKMODAL);
+    std::exit(-1 );
+  }
+
   void Logger::log(const LogLevel level, const std::string& message) {
     get().emitMsg(level, message);
   }

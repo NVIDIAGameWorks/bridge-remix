@@ -42,6 +42,7 @@ namespace bridge_util {
   protected:
     T* m_data;
 
+    const std::string m_name;
     const size_t m_size;
     const size_t m_queueSize;
     const Accessor m_access;
@@ -53,7 +54,8 @@ namespace bridge_util {
 
   public:
     CircularQueue(const std::string& name, Accessor access, void* pMemory, const size_t memSize, const size_t queueSize)
-      : m_size(memSize / sizeof(T))
+      : m_name(name)
+      , m_size(memSize / sizeof(T))
       , m_access(access)
       , m_queueSize(queueSize)
       , m_data(nullptr) // INIT
@@ -69,6 +71,10 @@ namespace bridge_util {
     CircularQueue(const CircularQueue& q) = delete;
 
     ~CircularQueue() {
+    }
+
+    const std::string& getName() {
+      return m_name;
     }
 
     // Push object to queue

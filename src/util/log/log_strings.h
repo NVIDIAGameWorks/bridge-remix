@@ -28,6 +28,8 @@ namespace logger_strings {
   constexpr char* OutOfBufferMemory = "The host application has tried to write data larger than one of the RTX Remix Bridge's buffers. Increase one of the buffer sizes in \".trex\\bridge.conf\".\n\n";
   constexpr char* OutOfBufferMemory1 = " Buffer Option: ";
   constexpr char* MultipleActiveCommands = "Multiple active Command instances detected!";
+  constexpr char* RtxRemixRuntimeError = "RTX Remix Runtime Error!";
+  constexpr char* BridgeClientClosing = "The bridge server process (.trex\\NvRemixBridge.exe) or dxvk-remix (.trex\\d3d9.dll) has unexpectedly exited, closing the bridge client and host application.";
 
   inline static const std::map<const std::string, const std::string> bufferNameToOptionMap =
   {

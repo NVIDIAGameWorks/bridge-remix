@@ -2408,10 +2408,6 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetVertexDeclaration(IDirect3DVertexD
   ZoneScoped;
   LogFunctionCall();
 
-  if (pDecl == nullptr) {
-    return D3DERR_INVALIDCALL;
-  }
-
   auto* const pLssVtxDecl = bridge_cast<Direct3DVertexDeclaration9_LSS*>(pDecl);
   const UID id = (pLssVtxDecl) ? (UID) pLssVtxDecl->getId() : 0;
   UID currentUID = 0;

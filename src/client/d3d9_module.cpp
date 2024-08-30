@@ -114,7 +114,7 @@ UINT Direct3D9Ex_LSS::GetAdapterCount() {
     ModuleClientCommand c(Commands::IDirect3D9Ex_GetAdapterCount);
     currentUID = c.get_uid();
   }
-  WAIT_FOR_SERVER_RESPONSE("GetAdapterCount()", 0, currentUID);
+  WAIT_FOR_SERVER_RESPONSE("GetAdapterCount()", 1, currentUID);
 
   m_adapterCount = (UINT) ModuleBridge::get_data();
   ModuleBridge::pop_front();

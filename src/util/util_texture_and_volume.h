@@ -28,7 +28,46 @@
 #include <algorithm>
 #include <functional>
 
+ // Driver Hacks / Unofficial Formats
+#define D3DFMT_ATI1 MAKEFOURCC('A', 'T', 'I', '1')
 #define D3DFMT_ATI2 MAKEFOURCC('A', 'T', 'I', '2')
+#define D3DFMT_INST MAKEFOURCC('I', 'N', 'S', 'T')
+#define D3DFMT_DF24 MAKEFOURCC('D', 'F', '2', '4')
+#define D3DFMT_DF16 MAKEFOURCC('D', 'F', '1', '6')
+#define D3DFMT_NULL_FORMAT MAKEFOURCC('N', 'U', 'L', 'L')
+#define D3DFMT_GET4 MAKEFOURCC('G', 'E', 'T', '4')
+#define D3DFMT_GET1 MAKEFOURCC('G', 'E', 'T', '1')
+#define D3DFMT_NVDB MAKEFOURCC('N', 'V', 'D', 'B')
+#define D3DFMT_A2M1 MAKEFOURCC('A', '2', 'M', '1')
+#define D3DFMT_A2M0 MAKEFOURCC('A', '2', 'M', '0')
+#define D3DFMT_ATOC MAKEFOURCC('A', 'T', 'O', 'C')
+#define D3DFMT_INTZ MAKEFOURCC('I', 'N', 'T', 'Z')
+#define D3DFMT_RAWZ MAKEFOURCC('R', 'A', 'W', 'Z')
+#define D3DFMT_RESZ MAKEFOURCC('R', 'E', 'S', 'Z')
+#define D3DFMT_NV11 MAKEFOURCC('N', 'V', '1', '1')
+#define D3DFMT_NV12 MAKEFOURCC('N', 'V', '1', '2')
+#define D3DFMT_P010 MAKEFOURCC('P', '0', '1', '0') // Same as NV12 but 10 bit
+#define D3DFMT_P016 MAKEFOURCC('P', '0', '1', '6') // Same as NV12 but 16 bit
+#define D3DFMT_Y210 MAKEFOURCC('Y', '2', '1', '0')
+#define D3DFMT_Y216 MAKEFOURCC('Y', '2', '1', '6')
+#define D3DFMT_Y410 MAKEFOURCC('Y', '4', '1', '0')
+#define D3DFMT_AYUV MAKEFOURCC('A', 'Y', 'U', 'V')
+#define D3DFMT_YV12 MAKEFOURCC('Y', 'V', '1', '2')
+#define D3DFMT_OPAQUE_420 MAKEFOURCC('4', '2', '0', 'O')
+
+// Not supported but exist
+#define D3DFMT_AI44 MAKEFOURCC('A', 'I', '4', '4')
+#define D3DFMT_IA44 MAKEFOURCC('I', 'A', '4', '4')
+#define D3DFMT_R2VB MAKEFOURCC('R', '2', 'V', 'B')
+#define D3DFMT_COPM MAKEFOURCC('C', 'O', 'P', 'M')
+#define D3DFMT_SSAA MAKEFOURCC('S', 'S', 'A', 'A')
+#define D3DFMT_AL16 MAKEFOURCC('A', 'L', '1', '6')
+#define D3DFMT_R16  MAKEFOURCC(' ', 'R', '1', '6')
+#define D3DFMT_EXT1 MAKEFOURCC('E', 'X', 'T', '1')
+#define D3DFMT_FXT1 MAKEFOURCC('F', 'X', 'T', '1')
+#define D3DFMT_GXT1 MAKEFOURCC('G', 'X', 'T', '1')
+#define D3DFMT_HXT1 MAKEFOURCC('H', 'X', 'T', '1')
+
 
 namespace bridge_util {
   static uint32_t getBlockSize(const D3DFORMAT& format) {
@@ -40,6 +79,7 @@ namespace bridge_util {
     case D3DFMT_DXT5:
       return 4;
     // Dummy value to align IncomingPitch and SlicePitch with DXVK for D3DFMT_ATI2 format
+    case D3DFMT_ATI1:
     case D3DFMT_ATI2:
       return 1;
     default:
@@ -58,8 +98,39 @@ namespace bridge_util {
     case D3DFMT_DXT5:
       return 16;
     // Dummy value to align IncomingPitch and SlicePitch with DXVK for D3DFMT_ATI2 format
+    case D3DFMT_ATI1:
     case D3DFMT_ATI2:
-      return 1;  
+      return 1;
+    // Explicitly unsupported
+    case D3DFMT_RESZ:
+    case D3DFMT_INST:
+    case D3DFMT_NVDB:
+    case D3DFMT_GET4:
+    case D3DFMT_GET1:
+    case D3DFMT_NULL_FORMAT:
+    case D3DFMT_A2M1:
+    case D3DFMT_A2M0:
+    case D3DFMT_ATOC:
+    case D3DFMT_RAWZ:
+    case D3DFMT_NV11:
+    case D3DFMT_P010:
+    case D3DFMT_Y210:
+    case D3DFMT_Y216:
+    case D3DFMT_Y410:
+    case D3DFMT_AYUV:
+    case D3DFMT_OPAQUE_420:
+    case D3DFMT_AI44:
+    case D3DFMT_IA44:
+    case D3DFMT_R2VB:
+    case D3DFMT_COPM:
+    case D3DFMT_SSAA:
+    case D3DFMT_AL16:
+    case D3DFMT_R16:
+    case D3DFMT_EXT1:
+    case D3DFMT_FXT1:
+    case D3DFMT_GXT1:
+    case D3DFMT_HXT1:
+      return 0;
 
     case D3DFMT_A32B32G32R32F:
       return 16;
@@ -95,9 +166,12 @@ namespace bridge_util {
     case D3DFMT_D32F_LOCKABLE:
     case D3DFMT_D24FS8:
     case D3DFMT_D32_LOCKABLE:
+    case D3DFMT_DF24:
+    case D3DFMT_INTZ:
       return 4;
 
     case D3DFMT_R8G8B8:
+    case D3DFMT_YV12:
       return 3;
 
     case D3DFMT_R5G6B5:
@@ -121,6 +195,8 @@ namespace bridge_util {
     case D3DFMT_R16F:
     case D3DFMT_R8G8_B8G8:
     case D3DFMT_G8R8_G8B8:
+    case D3DFMT_DF16:
+    case D3DFMT_P016:
       return 2;
 
     case D3DFMT_P8:
@@ -130,6 +206,7 @@ namespace bridge_util {
     case D3DFMT_A8:
     case D3DFMT_A1:
     case D3DFMT_S8_LOCKABLE:
+    case D3DFMT_NV12:
       return 1;
 
     default:

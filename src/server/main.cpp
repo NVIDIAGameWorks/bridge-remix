@@ -134,8 +134,6 @@ std::unordered_map<uint32_t, IDirect3DSwapChain9*> gpD3DSwapChains;
 std::unordered_map<uint32_t, IDirect3DQuery9*> gpD3DQuery;
 std::unordered_map<uint32_t, void*> gMapRemixApi;
 
-std::mutex gLock;
-
 // Global state
 bool gbBridgeRunning = true;
 HANDLE hWait;
@@ -306,9 +304,74 @@ void ProcessDeviceCommandQueue() {
         Logger::info("Device Processing: " + toString(rpcHeader.command) + " UID: " + std::to_string(currentUID));
       }
 #endif
-      std::unique_lock<std::mutex> lock(gLock);
       // The mother of all switch statements - every call in the D3D9 interface is mapped here...
       switch (rpcHeader.command) {
+      case IDirect3D9Ex_CreateDeviceEx:
+      {
+        GET_HND(pHandle);
+        PULL_U(Adapter);
+        PULL(D3DDEVTYPE, DeviceType);
+        PULL(uint32_t, hFocusWindow);
+        PULL_D(BehaviorFlags);
+        D3DDISPLAYMODEEX* pFullscreenDisplayMode = nullptr;
+        PULL_DATA(sizeof(D3DDISPLAYMODEEX), pFullscreenDisplayMode);
+
+        uint32_t* rawPresentationParameters = nullptr;
+        DeviceBridge::get_data((void**) &rawPresentationParameters);
+        D3DPRESENT_PARAMETERS PresentationParameters = getPresParamFromRaw(rawPresentationParameters);
+
+        IDirect3DDevice9Ex* pD3DDevice = nullptr;
+        const auto hresult = ((IDirect3D9Ex*) gpD3D)->CreateDeviceEx(IN Adapter, IN DeviceType, IN TRUNCATE_HANDLE(HWND, hFocusWindow), IN BehaviorFlags, IN OUT & PresentationParameters, IN pFullscreenDisplayMode, OUT & pD3DDevice);
+        if (!SUCCEEDED(hresult)) {
+          std::stringstream ss;
+          ss << format_string("CreateDeviceEx() call failed with error code 0x%x", hresult) << std::endl;
+          Logger::err(ss.str());
+        } else {
+          Logger::info("Server side D3D9 DeviceEx created successfully!");
+          gpD3DDevices[pHandle] = pD3DDevice;
+          remixapi::g_device = pD3DDevice;
+        }
+
+        // Send response back to the client
+        Logger::debug("Sending CreateDevice ack response back to client.");
+        {
+          ServerMessage c(Commands::Bridge_Response, currentUID);
+          c.send_data(hresult);
+        }
+        break;
+      }
+      case IDirect3D9Ex_CreateDevice:
+      {
+        GET_HND(pHandle);
+        PULL_U(Adapter);
+        PULL(D3DDEVTYPE, DeviceType);
+        PULL(uint32_t, hFocusWindow);
+        PULL_D(BehaviorFlags);
+
+        uint32_t* rawPresentationParameters = nullptr;
+        DeviceBridge::get_data((void**) &rawPresentationParameters);
+        D3DPRESENT_PARAMETERS PresentationParameters = getPresParamFromRaw(rawPresentationParameters);
+
+        IDirect3DDevice9* pD3DDevice = nullptr;
+        const auto hresult = gpD3D->CreateDevice(IN Adapter, IN DeviceType, IN TRUNCATE_HANDLE(HWND, hFocusWindow), IN BehaviorFlags, IN OUT & PresentationParameters, OUT & pD3DDevice);
+        if (!SUCCEEDED(hresult)) {
+          std::stringstream ss;
+          ss << format_string("CreateDevice() call failed with error code 0x%x", hresult) << std::endl;
+          Logger::err(ss.str());
+        } else {
+          Logger::info("Server side D3D9 Device created successfully!");
+          gpD3DDevices[pHandle] = (IDirect3DDevice9Ex*) pD3DDevice;
+          remixapi::g_device = (IDirect3DDevice9Ex*) pD3DDevice;
+        }
+
+        // Send response back to the client
+        Logger::debug("Sending CreateDevice ack response back to client.");
+        {
+          ServerMessage c(Commands::Bridge_Response, currentUID);
+          c.send_data(hresult);
+        }
+        break;
+      }
       case IDirect3DDevice9Ex_GetDisplayModeEx:
       {
         GET_RES(pD3DDevice, gpD3DDevices);

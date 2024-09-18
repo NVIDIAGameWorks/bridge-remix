@@ -73,7 +73,7 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   
   UID currentUID = 0;
   {
-    ModuleClientCommand c(m_ex ? Commands::IDirect3D9Ex_CreateDeviceEx : Commands::IDirect3D9Ex_CreateDevice, getId());
+    ClientMessage c(m_ex ? Commands::IDirect3D9Ex_CreateDeviceEx : Commands::IDirect3D9Ex_CreateDevice, getId());
     currentUID = c.get_uid();
     c.send_many(           createParams.AdapterOrdinal,
                            createParams.DeviceType,
@@ -90,18 +90,18 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   Logger::debug("...server-side D3D9 device creation command sent...");
 
   Logger::debug("...waiting for create device ack response from server...");
-  if (Result::Success != ModuleBridge::waitForCommand(Commands::Bridge_Response, 0, nullptr, true, currentUID)) {
+  if (Result::Success != DeviceBridge::waitForCommand(Commands::Bridge_Response, 0, nullptr, true, currentUID)) {
     Logger::err("...server-side D3D9 device creation failed with: no response from server.");
     removeWinProc(getWinProcHwnd());
     hresultOut = D3DERR_DEVICELOST;
     return;
   }
   Logger::debug("...create device response received from server...");
-  const auto header = ModuleBridge::pop_front();
+  const auto header = DeviceBridge::pop_front();
 
   // Grab hresult from server
-  hresultOut = (HRESULT) ModuleBridge::get_data();
-  assert(ModuleBridge::get_data_pos() == header.dataOffset);
+  hresultOut = (HRESULT) DeviceBridge::get_data();
+  assert(DeviceBridge::get_data_pos() == header.dataOffset);
 
   if (FAILED(hresultOut)) {
     Logger::err(format_string("...server-side D3D9 device creation failed with %x.", hresultOut));

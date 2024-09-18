@@ -151,9 +151,8 @@ void OnServerExited(Process const* process) {
   gbBridgeRunning = false;
   // Notify the user that we have to shut down the bridge entirely because we don't have a renderer anymore
   if (BridgeState::getClientState() != BridgeState::ProcessState::DoneProcessing) {
-    Logger::err("The bridge server process has unexpectedly exited, closing the bridge client and host application.");
     PrintRecentCommandHistory();
-    MessageBox(nullptr, "The bridge server process has unexpectedly exited, closing the bridge client and host application.", "RTX Remix Bridge Error!",MB_OK);
+    Logger::errLogMessageBoxAndExit(logger_strings::BridgeClientClosing);
     std::abort();
   }
 

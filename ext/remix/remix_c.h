@@ -26,8 +26,10 @@
 #include <stdint.h>
 #include <windows.h>
 
+#ifndef REMIX_ALLOW_X86
 #if _WIN64 != 1
   #error Remix API requires 64-bit for the ray tracing features.
+#endif
 #endif
 
 
@@ -405,6 +407,7 @@ extern "C" {
     REMIXAPI_INSTANCE_CATEGORY_BIT_THIRD_PERSON_PLAYER_MODEL = 1 << 18,
     REMIXAPI_INSTANCE_CATEGORY_BIT_THIRD_PERSON_PLAYER_BODY  = 1 << 19,
     REMIXAPI_INSTANCE_CATEGORY_BIT_IGNORE_BAKED_LIGHTING     = 1 << 20,
+    REMIXAPI_INSTANCE_CATEGORY_BIT_IGNORE_ALPHA_CHANNEL      = 1 << 21,
   } remixapi_InstanceCategoryBit;
 
   typedef uint32_t remixapi_InstanceCategoryFlags;
@@ -781,14 +784,14 @@ extern "C" {
       return REMIXAPI_ERROR_CODE_GET_PROC_ADDRESS_FAILURE;
     }
 
-    remixapi_InitializeLibraryInfo info = {};
+    remixapi_InitializeLibraryInfo info = { 0 };
     {
       info.sType = REMIXAPI_STRUCT_TYPE_INITIALIZE_LIBRARY_INFO;
       info.version = REMIXAPI_VERSION_MAKE(REMIXAPI_VERSION_MAJOR,
                                            REMIXAPI_VERSION_MINOR,
                                            REMIXAPI_VERSION_PATCH);
     }
-    remixapi_Interface remixInterface = { nullptr };
+    remixapi_Interface remixInterface = { 0 };
 
     remixapi_ErrorCode status = pfn_InitializeLibrary(&info, &remixInterface);
     if (status != REMIXAPI_ERROR_CODE_SUCCESS) {

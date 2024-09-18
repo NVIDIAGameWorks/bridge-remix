@@ -25,6 +25,7 @@ util_src = files([
 	'util_gdi.cpp',
 	'util_messagechannel.cpp',
 	'util_process.cpp',
+	'util_remixapi.cpp',
 	'util_seh.cpp',
 	'util_semaphore.cpp',
 	'util_sharedheap.cpp',
@@ -56,9 +57,11 @@ util_header = files([
 	'util_messagechannel.h',
 	'util_once.h',
 	'util_process.h',
+	'util_remixapi.h',
 	'util_scopedlock.h',
 	'util_seh.h',
 	'util_semaphore.h',
+	'util_serializable.h',
 	'util_serializer.h',
 	'util_sharedmemory.h',
 	'util_singleton.h',
@@ -66,12 +69,13 @@ util_header = files([
 	'util_version.h',
 	'util_monitor.h',
 	'log/log.h',
+	'log/log_strings.h',
 	'config/config.h',
 	'config/global_options.h',
 ])
 
 util_lib = static_library('util', util_src, util_header,
-  include_directories : [ bridge_include_path ],
+  include_directories : [ bridge_include_path, public_include_path, ext_include_path  ],
 )
 
 util_dep = declare_dependency(

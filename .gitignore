@@ -23,6 +23,7 @@
 _output/
 _output
 _comp*
+_Comp*
 _vs/**
 
 .history

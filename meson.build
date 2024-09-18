@@ -113,6 +113,8 @@ endif
 
 bridge_include_path = '' # include_directories('./include')
 util_include_path = include_directories('./src/util')
+public_include_path = include_directories('./public/include/')
+ext_include_path = include_directories('./ext/')
 
 if (cpu_family == 'x86_64')
   bridge_library_path = meson.global_source_root() + '/lib'
@@ -248,19 +250,20 @@ bridge_version = vcs_tag(
   input:  'version.h.in',
   output: 'version.h')
 
-subdir('src')
+enable_tests = get_option('enable_tests') # Must be defined before subdir'ing src
 
-enable_tests = get_option('enable_tests')
+subdir('src')
 
 if enable_tests
   subdir('test')
+  subdir_done()
 endif
 
 vs_gen_cmdline = [ vs_project_defines ]
 
 # add data from gametargets.conf to bridge_copy_targets
 game_targets_run = run_command(python_interpreter,
-                             meson.global_source_root() + '\\vsgen\\get_game_target_list.py')
+                            meson.global_source_root() + '\\vsgen\\get_game_target_list.py')
 game_targets = game_targets_run.stdout().strip()
 
 copy_targets = {}
@@ -311,20 +314,20 @@ endforeach
 # Building project files after builds for x86_64 and x86 platforms are created, here builds for x86 platform are created after x86_64
 if cpu_family == 'x86'
     
-	# generate VS project files for ninja
-	# note: this writes to <source root>/_vs, which is outside the build directory
-	vsproj = run_command(python_interpreter,
-					  meson.global_source_root() + '\\vsgen\\generate_vs_project_files.py',
-					  vs_gen_cmdline,
-					  check: false)
+  # generate VS project files for ninja
+  # note: this writes to <source root>/_vs, which is outside the build directory
+  vsproj = run_command(python_interpreter,
+            meson.global_source_root() + '\\vsgen\\generate_vs_project_files.py',
+            vs_gen_cmdline,
+            check: false)
 
-	if vsproj.stdout().strip() != ''
-	message(vsproj.stdout().strip())
-	endif
-	if vsproj.stderr().strip() != ''
-	message(vsproj.stderr().strip())
-	endif
-	if vsproj.returncode() != 0
-	error('generate_vs_project_files failed')
-	endif
+  if vsproj.stdout().strip() != ''
+  message(vsproj.stdout().strip())
+  endif
+  if vsproj.stderr().strip() != ''
+  message(vsproj.stderr().strip())
+  endif
+  if vsproj.returncode() != 0
+  error('generate_vs_project_files failed')
+  endif
 endif

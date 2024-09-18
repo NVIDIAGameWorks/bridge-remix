@@ -24,8 +24,11 @@
 
 #include <cstdio>
 #include <mutex>
+#include <string>
 
 #include "util_circularqueue.h"
+#include "log/log_strings.h"
+#include "log/log.h"
 
 namespace bridge_util {
 
@@ -130,7 +133,8 @@ namespace bridge_util {
       size_t space_needed = chunk_size(size);
       if (m_pos + space_needed >= m_size) {
         if (space_needed > m_size) {
-          throw std::exception("The data is larger than shared memory size!");
+          // FATAL Condition, Message User and Exit
+          Logger::errLogMessageBoxAndExit(std::string(logger_strings::OutOfBufferMemory) + std::string(logger_strings::OutOfBufferMemory1) + logger_strings::bufferNameToOption(m_name));
         }
         // Roll over immediately if not enough space left
         m_pos = 0;

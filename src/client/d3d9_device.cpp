@@ -39,14 +39,13 @@
 #include "client_options.h"
 #include "swapchain_map.h"
 #include "config/global_options.h"
+#include "remix_api.h"
 
 #include "util_bridge_assert.h"
 #include "util_semaphore.h"
 
 #include <wingdi.h>
 #include <assert.h>
-
- #include "remix_api.h"
 
 #define GET_PRES_PARAM() (m_pSwapchain->getPresentationParameters())
 
@@ -493,6 +492,10 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Present(CONST RECT* pSourceRect, CONS
   // to send keyboard state to the server.
   if (!gbBridgeRunning) {
     return hresult;
+  }
+
+  if(remixapi::g_bInterfaceInitialized && remixapi::g_presentCallback) {
+    remixapi::g_presentCallback();
   }
 
   // Seeing this in the log could indicate the game is sending inputs to a different window
@@ -1098,6 +1101,10 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::BeginScene() {
       gSceneState = SceneInProgress;
     }
   }
+  
+  if (remixapi::g_bInterfaceInitialized && remixapi::g_beginSceneCallback) {
+    remixapi::g_beginSceneCallback();
+  }
 
   UID currentUID = 0;
   {
@@ -1119,8 +1126,8 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::EndScene() {
     }
   }
 
-  if (remix_api::interfaceInitialized && remix_api::interfaceGameCallback) {
-    remix_api::interfaceGameCallback();
+  if (remixapi::g_bInterfaceInitialized && remixapi::g_endSceneCallback) {
+    remixapi::g_endSceneCallback();
   }
 
   UID currentUID = 0;
@@ -1202,9 +1209,15 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetTransform(D3DTRANSFORMSTATETYPE St
     {
       BRIDGE_DEVICE_LOCKGUARD();
       if (m_stateRecording) {
+        if (memcmp(&m_stateRecording->m_captureState.transforms[idx], pMatrix, sizeof(D3DMATRIX)) == 0) {
+          return S_OK;
+        }
         m_stateRecording->m_captureState.transforms[idx] = *pMatrix;
         m_stateRecording->m_dirtyFlags.transforms[idx] = true;
       } else {
+        if (memcmp(&m_state.transforms[idx], pMatrix, sizeof(D3DMATRIX)) == 0) {
+          return S_OK;
+        }
         m_state.transforms[idx] = *pMatrix;
       }
     }
@@ -1373,9 +1386,15 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetLight(DWORD Index, CONST D3DLIGHT9
     {
       BRIDGE_DEVICE_LOCKGUARD();
       if (m_stateRecording) {
+        if (memcmp(&m_stateRecording->m_captureState.lights[Index], pLight, sizeof(D3DLIGHT9)) == 0) {
+          return S_OK;
+        }
         m_stateRecording->m_captureState.lights[Index] = *pLight;
         m_stateRecording->m_dirtyFlags.lights[Index] = true;
       } else {
+        if (memcmp(&m_state.lights[Index], pLight, sizeof(D3DLIGHT9)) == 0) {
+          return S_OK;
+        }
         m_state.lights[Index] = *pLight;
       }
     }
@@ -1415,8 +1434,14 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::LightEnable(DWORD LightIndex, BOOL bE
     {
       BRIDGE_DEVICE_LOCKGUARD();
       if (m_stateRecording) {
+        if (m_stateRecording->m_captureState.bLightEnables[LightIndex] == (bool)bEnable) {
+          return S_OK;
+        }
         m_stateRecording->m_captureState.bLightEnables[LightIndex] = bEnable;
       } else {
+        if (m_state.bLightEnables[LightIndex] == (bool)bEnable) {
+          return S_OK;
+        }
         m_state.bLightEnables[LightIndex] = bEnable;
       }
     }
@@ -1508,9 +1533,15 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetRenderState(D3DRENDERSTATETYPE Sta
     {
       BRIDGE_DEVICE_LOCKGUARD();
       if (m_stateRecording) {
+        if (m_stateRecording->m_captureState.renderStates[State] == Value) {
+          return S_OK;
+        }
         m_stateRecording->m_captureState.renderStates[State] = Value;
         m_stateRecording->m_dirtyFlags.renderStates[State] = true;
       } else {
+        if (m_state.renderStates[State] == Value) {
+          return S_OK;
+        }
         m_state.renderStates[State] = Value;
       }
     }
@@ -2046,10 +2077,17 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetTextureStageState(DWORD Stage, D3D
     {
       BRIDGE_DEVICE_LOCKGUARD();
       if (m_stateRecording) {
+        if (m_stateRecording->m_captureState.textureStageStates[stageIdx][typeIdx] == Value) {
+          return S_OK;
+        }
         m_stateRecording->m_captureState.textureStageStates[stageIdx][typeIdx] = Value;
         m_stateRecording->m_dirtyFlags.textureStageStates[stageIdx][typeIdx] = true;
+      } else {
+        if (m_state.textureStageStates[stageIdx][typeIdx] == Value) {
+          return S_OK;
+        }
+        m_state.textureStageStates[stageIdx][typeIdx] = Value;
       }
-      m_state.textureStageStates[stageIdx][typeIdx] = Value;
     }
     {
       ClientMessage c(Commands::IDirect3DDevice9Ex_SetTextureStageState, getId());
@@ -2096,9 +2134,15 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetSamplerState(DWORD Sampler, D3DSAM
     {
       BRIDGE_DEVICE_LOCKGUARD();
       if (m_stateRecording) {
+        if (m_stateRecording->m_captureState.samplerStates[samplerIdx][typeIdx] == Value) {
+          return S_OK;
+        }
         m_stateRecording->m_captureState.samplerStates[samplerIdx][typeIdx] = Value;
         m_stateRecording->m_dirtyFlags.samplerStates[samplerIdx][typeIdx] = true;
       } else {
+        if (m_state.samplerStates[samplerIdx][typeIdx] == Value) {
+          return S_OK;
+        }
         m_state.samplerStates[samplerIdx][typeIdx] = Value;
       }
     }
@@ -2413,10 +2457,6 @@ template<bool EnableSync>
 HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetVertexDeclaration(IDirect3DVertexDeclaration9* pDecl) {
   ZoneScoped;
   LogFunctionCall();
-
-  if (pDecl == nullptr) {
-    return D3DERR_INVALIDCALL;
-  }
 
   auto* const pLssVtxDecl = bridge_cast<Direct3DVertexDeclaration9_LSS*>(pDecl);
   const UID id = (pLssVtxDecl) ? (UID) pLssVtxDecl->getId() : 0;

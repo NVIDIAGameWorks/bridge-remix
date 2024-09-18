@@ -38,23 +38,17 @@ namespace Commands {
     Bridge_Response,
     Bridge_DebugMessage,
 
-    Api_DebugPrint,
-    Api_CreateOpaqueMaterial,
-    Api_CreateTranslucentMaterial,
-    Api_CreatePortalMaterial,
-    Api_DestroyMaterial,
-    Api_CreateTriangleMesh,
-    Api_DestroyMesh,
-    Api_DrawMeshInstance,
-    Api_CreateSphereLight,
-    Api_CreateRectLight,
-    Api_CreateDiskLight,
-    Api_CreateCylinderLight,
-    Api_CreateDistantLight,
-    Api_DestroyLight,
-    Api_DrawLightInstance,
-    Api_SetConfigVariable,
-    Api_RegisterDevice,
+    RemixApi_CreateMaterial,
+    RemixApi_DestroyMaterial,
+    RemixApi_CreateMesh,
+    RemixApi_DestroyMesh,
+    RemixApi_DrawInstance,
+    RemixApi_CreateLight,
+    RemixApi_DestroyLight,
+    RemixApi_DrawLightInstance,
+    RemixApi_SetConfigVariable,
+    RemixApi_CreateD3D9,
+    RemixApi_RegisterDevice,
 
     Bridge_SharedHeap_AddSeg,
     Bridge_SharedHeap_Alloc,
@@ -482,23 +476,17 @@ namespace Commands {
     case Bridge_Response: return "Response";
     case Bridge_DebugMessage: return "DebugMessage";
 
-    case Api_DebugPrint: return "ApiDebugPrint";
-    case Api_CreateOpaqueMaterial: return "ApiCreateOpaqueMaterial";
-    case Api_CreateTranslucentMaterial: return "ApiCreateTranslucentMaterial";
-    case Api_CreatePortalMaterial: return "ApiCreatePortalMaterial";
-    case Api_DestroyMaterial: return "ApiDestroyMaterial";
-    case Api_CreateTriangleMesh: return "ApiCreateTriangleMesh";
-    case Api_DestroyMesh: return "ApiDestroyMesh";
-    case Api_DrawMeshInstance: return "ApiDrawMeshInstance";
-    case Api_CreateSphereLight: return "ApiCreateSphereLight";
-    case Api_CreateRectLight: return "ApiCreateRectLight";
-    case Api_CreateDiskLight: return "ApiCreateDiskLight";
-    case Api_CreateCylinderLight: return "ApiCreateCylinderLight";
-    case Api_CreateDistantLight: return "ApiCreateDistantLight";
-    case Api_DestroyLight: return "ApiDestroyLight";
-    case Api_DrawLightInstance: return "DrawLightInstance";
-    case Api_SetConfigVariable: return "ApiSetConfigVariable";
-    case Api_RegisterDevice: return "ApiRegisterDevice";
+    case RemixApi_CreateMaterial: return "RemixApi_CreateMaterial";
+    case RemixApi_DestroyMaterial: return "RemixApi_DestroyMaterial";
+    case RemixApi_CreateMesh: return "RemixApi_CreateMesh";
+    case RemixApi_DestroyMesh: return "RemixApi_DestroyMesh";
+    case RemixApi_DrawInstance: return "RemixApi_DrawInstance";
+    case RemixApi_CreateLight: return "RemixApi_CreateLight";
+    case RemixApi_DestroyLight: return "RemixApi_DestroyLight";
+    case RemixApi_DrawLightInstance: return "DrawLightInstance";
+    case RemixApi_SetConfigVariable: return "RemixApi_SetConfigVariable";
+    case RemixApi_CreateD3D9: return "RemixApi_CreateD3D9";
+    case RemixApi_RegisterDevice: return "RemixApi_RegisterDevice";
 
     case Bridge_SharedHeap_AddSeg: return "SharedHeap_AddSeg";
     case Bridge_SharedHeap_Alloc: return "SharedHeap_Alloc";

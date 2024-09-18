@@ -22,10 +22,13 @@
 
 subdir('tracy')
 subdir('util')
-if cpu_family == 'x86'
-	subdir('client')
-	subdir('server')
-	subdir('launcher')
-elif cpu_family == 'x86_64'
-	subdir('server')
+
+if not enable_tests
+	if cpu_family == 'x86'
+		subdir('client')
+		subdir('server')
+		subdir('launcher')
+	elif cpu_family == 'x86_64'
+		subdir('server')
+	endif
 endif

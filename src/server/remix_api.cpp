@@ -19,15 +19,26 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-#pragma once
 
-#include <remixapi/bridge_remix_api.h>
+#include "remix_api.h"
+
+#include "log/log.h"
 
 namespace remixapi {
+  remixapi_Interface g_remix = {};
+  bool g_remix_initialized = false;
+  HMODULE g_remix_dll = nullptr;
+  IDirect3DDevice9Ex* g_device = nullptr;
+  std::mutex g_device_mutex;
 
-extern bool g_bInterfaceInitialized;
-extern PFN_remixapi_BridgeCallback g_beginSceneCallback;
-extern PFN_remixapi_BridgeCallback g_endSceneCallback;
-extern PFN_remixapi_BridgeCallback g_presentCallback;
+  IDirect3DDevice9Ex* getDevice() {
+    std::scoped_lock device_lock(g_device_mutex);
+    if (g_device) {
+      bridge_util::Logger::info("[RemixApi] getDevice(): success");
+      return g_device;
+    }
 
+    bridge_util::Logger::info("[RemixApi] getDevice(): failed");
+    return nullptr;
+  }
 }

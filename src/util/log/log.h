@@ -52,6 +52,7 @@ namespace bridge_util {
     static void info(const std::string& message);
     static void warn(const std::string& message);
     static void err(const std::string& message);
+    static void errLogMessageBoxAndExit(const std::string& message);
     static void log(const LogLevel level, const std::string& message);
     // The lowest level method. NOT thread-safe. Use at your own risk!
     static void logLine(const LogLevel level, const char* line);

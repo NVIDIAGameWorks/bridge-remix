@@ -23,11 +23,32 @@
 
 #include <remixapi/bridge_remix_api.h>
 
+#include "util_devicecommand.h"
+#include "util_remixapi.h"
+
+#include <mutex>
+
 namespace remixapi {
+  extern remixapi_Interface g_remix;
+  extern bool g_remix_initialized;
+  extern HMODULE g_remix_dll;
+  extern IDirect3DDevice9Ex* g_device;
+  extern std::mutex g_device_mutex;
+  extern IDirect3DDevice9Ex* getDevice();
+  
+  static inline remixapi_StructType pullSType() {
+    return (remixapi_StructType) DeviceBridge::get_data();
+  }
+  
+  static inline util::HandleUID pullHandle() {
+    return DeviceBridge::get_data();
+  }
 
-extern bool g_bInterfaceInitialized;
-extern PFN_remixapi_BridgeCallback g_beginSceneCallback;
-extern PFN_remixapi_BridgeCallback g_endSceneCallback;
-extern PFN_remixapi_BridgeCallback g_presentCallback;
-
+  static inline bool pullBool() {
+    const auto boolVal = (Bool)DeviceBridge::get_data();
+    // Since standalone values are pushed/pulled at a DWORD resolution
+    // we must mask out the lowest-most byte
+    bool b = (bool)((uint32_t)boolVal & 0x00ff);
+    return b;
+  }
 }

@@ -20,6 +20,7 @@
  * DEALINGS IN THE SOFTWARE.
  */
 #include "log.h"
+#include "log_strings.h"
 
 #include "util_filesys.h"
 
@@ -129,6 +130,12 @@ namespace bridge_util {
 
   void Logger::err(const std::string& message) {
     get().emitMsg(LogLevel::Error, message);
+  }
+
+  void Logger::errLogMessageBoxAndExit(const std::string& message) {
+    Logger::err(message);
+    MessageBox(nullptr, message.c_str(), logger_strings::RtxRemixRuntimeError, MB_OK | MB_TOPMOST | MB_TASKMODAL);
+    std::exit(-1 );
   }
 
   void Logger::log(const LogLevel level, const std::string& message) {

@@ -17,3 +17,6 @@ EXPORTS
   Direct3DCreate9Ex @ 38
 
   DetourFinishHelperProcess @ 1
+
+  remixapi_InitializeLibrary @ 39
+  remixapi_RegisterCallbacks @ 40

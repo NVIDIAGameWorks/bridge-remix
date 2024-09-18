@@ -23,6 +23,7 @@
 
 #include "version.h"
 #include "module_processing.h"
+#include "remix_api.h"
 
 #include "util_bridge_assert.h"
 #include "util_circularbuffer.h"
@@ -34,6 +35,7 @@
 #include "util_hack_d3d_debug.h"
 #include "util_messagechannel.h"
 #include "util_modulecommand.h"
+#include "util_remixapi.h"
 #include "util_seh.h"
 #include "util_semaphore.h"
 #include "util_sharedheap.h"
@@ -45,6 +47,7 @@
 #include "config/config.h"
 #include "config/global_options.h"
 #include "server_options.h"
+#include "../client/client_options.h"
 
 #include "../tracy/tracy.hpp"
 #include <iostream>
@@ -56,6 +59,7 @@
 
 using namespace Commands;
 using namespace bridge_util;
+using namespace remixapi::util;
 
 // NOTE: This extension is really useful for debugging the Bridge child process from the parent process:
 // https://marketplace.visualstudio.com/items?itemName=vsdbgplat.MicrosoftChildProcessDebuggingPowerTool
@@ -128,12 +132,26 @@ std::unordered_map<uint32_t, IDirect3DVertexShader9*> gpD3DVertexShaders;
 std::unordered_map<uint32_t, IDirect3DPixelShader9*> gpD3DPixelShaders;
 std::unordered_map<uint32_t, IDirect3DSwapChain9*> gpD3DSwapChains;
 std::unordered_map<uint32_t, IDirect3DQuery9*> gpD3DQuery;
+std::unordered_map<uint32_t, void*> gMapRemixApi;
 
 std::mutex gLock;
 
 // Global state
 bool gbBridgeRunning = true;
 HANDLE hWait;
+
+namespace {
+template<typename SerializableT>
+static void deserializeFromQueue(SerializableT& serializableT) {
+  static_assert(is_serializable_v<SerializableT>, "deserializeRemixApiT(...)  may only be called with defined Serializable<T> types");
+  void* pSlzdData = nullptr;
+  const auto size = DeviceBridge::get_data(&pSlzdData);
+  SerializableT dslz(pSlzdData);
+  assert(size == dslz.size());
+  dslz.deserialize();
+  serializableT = std::move(dslz);
+}
+}
 
 static inline void safeDestroy(IUnknown* obj, uint32_t x86handle) {
   // Note: in DXVK the refcounts of non-standalone objects may go negative!
@@ -2675,6 +2693,390 @@ void ProcessDeviceCommandQueue() {
         gpD3DResources.erase(pHandle);
         break;
       }
+
+      /*
+       * BridgeApi commands
+       */
+      case RemixApi_CreateMaterial:
+      {
+        // Rather than allocate deserialized struct extensions on the heap,
+        // allocate them locally, since we know only one instance will be
+        // supported at a time
+        struct MaterialExtensions {
+          serialize::MaterialInfoOpaque opaque;
+          serialize::MaterialInfoOpaqueSubsurface opaqueSubsurface;
+          serialize::MaterialInfoTranslucent translucent;
+          serialize::MaterialInfoPortal portal;
+        } exts;
+        memset(&exts, 0, sizeof(MaterialExtensions));
+
+        const auto matInfoSType = remixapi::pullSType();
+        assert(matInfoSType == REMIXAPI_STRUCT_TYPE_MATERIAL_INFO);
+        serialize::MaterialInfo matInfo;
+        deserializeFromQueue(matInfo);
+        
+        matInfo.pNext = nullptr;
+
+        bool bMatExtExists = remixapi::pullBool();
+        auto* pInfoProto = &getInfoProto(matInfo);
+        while(bMatExtExists) {
+          const auto extSType = remixapi::pullSType();
+          switch (extSType) {
+            case REMIXAPI_STRUCT_TYPE_MATERIAL_INFO_OPAQUE_EXT:
+            {
+              assert(!exts.opaque.pNext);
+              deserializeFromQueue(exts.opaque);
+              pInfoProto->pNext = &(exts.opaque);
+              pInfoProto = &getInfoProto(exts.opaque);
+              break;
+            }
+            case REMIXAPI_STRUCT_TYPE_MATERIAL_INFO_OPAQUE_SUBSURFACE_EXT:
+            {
+              assert(!exts.opaqueSubsurface.pNext);
+              deserializeFromQueue(exts.opaqueSubsurface);
+              pInfoProto->pNext = &(exts.opaqueSubsurface);
+              pInfoProto = &getInfoProto(exts.opaqueSubsurface);
+              break;
+            }
+            case REMIXAPI_STRUCT_TYPE_MATERIAL_INFO_TRANSLUCENT_EXT:
+            {
+              assert(!exts.translucent.pNext);
+              deserializeFromQueue(exts.translucent);
+              pInfoProto->pNext = &(exts.translucent);
+              pInfoProto = &getInfoProto(exts.translucent);
+              break;
+            }
+            case REMIXAPI_STRUCT_TYPE_MATERIAL_INFO_PORTAL_EXT:
+            {
+              assert(!exts.portal.pNext);
+              deserializeFromQueue(exts.portal);
+              pInfoProto->pNext = &(exts.portal);
+              pInfoProto = &getInfoProto(exts.portal);
+              break;
+            }
+            default:
+            {
+              Logger::warn("[Api_CreateMaterial] Unknown sType. Skipping.");
+              break;
+            }
+          }
+          bMatExtExists = remixapi::pullBool();
+        }
+
+        HandleUID handle = remixapi::pullHandle();
+        assert(handle.isValid());
+
+        remixapi_MaterialHandle matHandle = nullptr;
+        if(remixapi::g_remix.CreateMaterial(&matInfo, &matHandle) == REMIXAPI_ERROR_CODE_SUCCESS) {
+          gMapRemixApi.emplace(handle, matHandle);
+        } else {
+          Logger::err("[RemixApi_CreateMaterial] Remix API call failed!");
+        }
+        
+        break;
+      }
+
+      case RemixApi_DestroyMaterial:
+      {
+        HandleUID handle = remixapi::pullHandle();
+        const bool bHandleIsValid =
+          handle.isValid() && gMapRemixApi.find(handle) != gMapRemixApi.cend();
+        assert(bHandleIsValid);
+        if(bHandleIsValid) {
+          remixapi::g_remix.DestroyMaterial(handle);
+          gMapRemixApi.erase(handle);
+        } else {
+          Logger::err("[RemixApi_DestroyMaterial] Invalid material handle!" );
+        }
+        break;
+      }
+
+      case RemixApi_CreateMesh:
+      {
+        const auto meshInfoSType = remixapi::pullSType();
+        assert(meshInfoSType == REMIXAPI_STRUCT_TYPE_MESH_INFO);
+        serialize::MeshInfo meshInfo;
+        deserializeFromQueue(meshInfo);
+        meshInfo.pNext = nullptr;
+        
+        for(size_t iSurf = 0; iSurf < meshInfo.surfaces_count; ++iSurf) {
+          // If we don't const_cast, we'd have to copy the entire
+          // remixapi_MeshInfo::surfaces_values array in order to get around
+          // the remixapi_MeshInfo's member const qualifier and reassign
+          // remixapi_MeshInfoSurfaceTriangles::material.
+          auto& surf = const_cast<remixapi_MeshInfoSurfaceTriangles&>(meshInfo.surfaces_values[iSurf]);
+          HandleUID handle = surf.material;
+          assert(handle.isValid());
+          assert(gMapRemixApi.find(handle) != gMapRemixApi.cend());
+          surf.material = (remixapi_MaterialHandle)gMapRemixApi[handle];
+        }
+
+        HandleUID handle = remixapi::pullHandle();
+        assert(handle.isValid());
+        
+        remixapi_MeshHandle meshHandle = nullptr;
+        if(remixapi::g_remix.CreateMesh(&meshInfo, &meshHandle) == REMIXAPI_ERROR_CODE_SUCCESS) {
+          gMapRemixApi.emplace(handle, meshHandle);
+        } else {
+          Logger::err("[RemixApi_CreateMesh] Remix API call failed!");
+        }
+
+        break;
+      }
+
+      case RemixApi_DestroyMesh:
+      {
+        HandleUID handle = remixapi::pullHandle();
+        const bool bHandleIsValid =
+          handle.isValid() && gMapRemixApi.find(handle) != gMapRemixApi.cend();
+        assert(bHandleIsValid);
+        if(bHandleIsValid) {
+          remixapi::g_remix.DestroyMesh(handle);
+          gMapRemixApi.erase(handle);
+        } else {
+          Logger::err("[RemixApi_DestroyMesh] Invalid mesh handle!" );
+        }
+        break;
+      }
+
+      case RemixApi_DrawInstance:
+      {
+        // Rather than allocate deserialized struct extensions on the heap,
+        // allocate them locally, since we know only one instance will be
+        // supported at a time
+        struct InstanceExtensions {
+          serialize::InstanceInfoObjectPicking objectPicking;
+          serialize::InstanceInfoBlend blend;
+          serialize::InstanceInfoTransforms boneXforms;
+        } exts;
+        memset(&exts, 0, sizeof(InstanceExtensions));
+
+        const auto instSType = remixapi::pullSType();
+        assert(instSType == REMIXAPI_STRUCT_TYPE_INSTANCE_INFO);
+        serialize::InstanceInfo instInfo;
+        deserializeFromQueue(instInfo);
+        
+        HandleUID handle = instInfo.mesh;
+        const bool bHandleIsValid =
+          handle.isValid() && gMapRemixApi.find(handle) != gMapRemixApi.cend();
+        assert(bHandleIsValid);
+        if(bHandleIsValid) {
+          instInfo.mesh = (remixapi_MeshHandle)gMapRemixApi[handle];
+        } else {
+          Logger::err("[RemixApi_DrawInstance] Invalid mesh handle!" );
+          break;
+        }
+
+        instInfo.pNext = nullptr;
+        
+        bool bInstExtExists = remixapi::pullBool();
+        auto* pInfoProto = &getInfoProto(instInfo);
+        while(bInstExtExists) {
+          const auto extSType = remixapi::pullSType();
+          switch (extSType) {
+            case REMIXAPI_STRUCT_TYPE_INSTANCE_INFO_OBJECT_PICKING_EXT:
+            {
+              assert(!exts.objectPicking.pNext);
+              deserializeFromQueue(exts.objectPicking);
+              pInfoProto->pNext = &(exts.objectPicking);
+              pInfoProto = &getInfoProto(exts.objectPicking);
+              break;
+            }
+            case REMIXAPI_STRUCT_TYPE_INSTANCE_INFO_BLEND_EXT:
+            {
+              assert(!exts.blend.pNext);
+              deserializeFromQueue(exts.blend);
+              pInfoProto->pNext = &(exts.blend);
+              pInfoProto = &getInfoProto(exts.blend);
+              break;
+            }
+            case REMIXAPI_STRUCT_TYPE_INSTANCE_INFO_BONE_TRANSFORMS_EXT:
+            {
+              assert(!exts.boneXforms.pNext);
+              deserializeFromQueue(exts.boneXforms);
+              pInfoProto->pNext = &(exts.boneXforms);
+              pInfoProto = &getInfoProto(exts.boneXforms);
+              break;
+            }
+            default:
+            {
+              Logger::warn("[RemixApi_DrawInstance] Unknown sType. Skipping.");
+              break;
+            }
+          }
+          bInstExtExists = remixapi::pullBool();
+        }
+
+        if(remixapi::g_remix.DrawInstance(&instInfo) != REMIXAPI_ERROR_CODE_SUCCESS) {
+          Logger::err("[RemixApi_DrawInstance] Remix API call failed!");
+        }
+
+        break;
+      }
+
+      case RemixApi_CreateLight:
+      {
+        // Rather than allocate deserialized struct extensions on the heap,
+        // allocate them locally, since we know only one instance will be
+        // supported at a time
+        struct LightExtensions {
+          serialize::LightInfoSphere sphere;
+          serialize::LightInfoRect rect;
+          serialize::LightInfoDisk disk;
+          serialize::LightInfoCylinder cylinder;
+          serialize::LightInfoDistant distant;
+          serialize::LightInfoDome dome;
+          serialize::LightInfoUSD usd;
+        } exts;
+        memset(&exts, 0, sizeof(LightExtensions));
+
+        const auto lightSType = remixapi::pullSType();
+        assert(lightSType == REMIXAPI_STRUCT_TYPE_LIGHT_INFO);
+        serialize::LightInfo lightInfo;
+        deserializeFromQueue(lightInfo);
+        lightInfo.pNext = nullptr;
+
+        bool bLightExtExists = remixapi::pullBool();
+        auto* pInfoProto = &getInfoProto(lightInfo);
+        while(bLightExtExists) {
+          const auto extSType = remixapi::pullSType();
+          switch (extSType) {
+            case REMIXAPI_STRUCT_TYPE_LIGHT_INFO_SPHERE_EXT:
+            {
+              assert(!exts.sphere.pNext);
+              deserializeFromQueue(exts.sphere);
+              pInfoProto->pNext = &(exts.sphere);
+              pInfoProto = &getInfoProto(exts.sphere);
+              break;
+            }
+            case REMIXAPI_STRUCT_TYPE_LIGHT_INFO_RECT_EXT:
+            {
+              assert(!exts.rect.pNext);
+              deserializeFromQueue(exts.rect);
+              pInfoProto->pNext = &(exts.rect);
+              pInfoProto = &getInfoProto(exts.rect);
+              break;
+            }
+            case REMIXAPI_STRUCT_TYPE_LIGHT_INFO_DISK_EXT:
+            {
+              assert(!exts.disk.pNext);
+              deserializeFromQueue(exts.disk);
+              pInfoProto->pNext = &(exts.disk);
+              pInfoProto = &getInfoProto(exts.disk);
+              break;
+            }
+            case REMIXAPI_STRUCT_TYPE_LIGHT_INFO_CYLINDER_EXT:
+            {
+              assert(!exts.cylinder.pNext);
+              deserializeFromQueue(exts.cylinder);
+              pInfoProto->pNext = &(exts.cylinder);
+              pInfoProto = &getInfoProto(exts.cylinder);
+              break;
+            }
+            case REMIXAPI_STRUCT_TYPE_LIGHT_INFO_DISTANT_EXT:
+            {
+              assert(!exts.distant.pNext);
+              deserializeFromQueue(exts.distant);
+              pInfoProto->pNext = &(exts.distant);
+              pInfoProto = &getInfoProto(exts.distant);
+              break;
+            }
+            case REMIXAPI_STRUCT_TYPE_LIGHT_INFO_DOME_EXT:
+            {
+              assert(!exts.dome.pNext);
+              deserializeFromQueue(exts.dome);
+              pInfoProto->pNext = &(exts.dome);
+              pInfoProto = &getInfoProto(exts.dome);
+              break;
+            }
+            case REMIXAPI_STRUCT_TYPE_LIGHT_INFO_USD_EXT:
+            {
+              assert(!exts.usd.pNext);
+              deserializeFromQueue(exts.usd);
+              pInfoProto->pNext = &(exts.usd);
+              pInfoProto = &getInfoProto(exts.usd);
+              break;
+            }
+            default:
+            {
+              Logger::warn("[RemixApi_CreateLight] Unknown sType. Skipping.");
+              break;
+            }
+          }
+          bLightExtExists = remixapi::pullBool();
+        }
+
+        HandleUID handle = remixapi::pullHandle();
+        assert(handle.isValid());
+
+        remixapi_LightHandle lightHandle = nullptr;
+        if(remixapi::g_remix.CreateLight(&lightInfo, &lightHandle) == REMIXAPI_ERROR_CODE_SUCCESS) {
+          gMapRemixApi.emplace(handle, lightHandle);
+        } else {
+          Logger::err("[RemixApi_CreateLight] Remix API call failed!");
+        }
+        
+        break;
+      }
+
+      case RemixApi_DestroyLight:
+      {
+        HandleUID handle = remixapi::pullHandle();
+        const bool bHandleIsValid =
+          handle.isValid() && gMapRemixApi.find(handle) != gMapRemixApi.cend();
+        assert(bHandleIsValid);
+        if(bHandleIsValid) {
+          remixapi::g_remix.DestroyLight(handle);
+          gMapRemixApi.erase(handle);
+        } else {
+          Logger::err("[RemixApi_DestroyLight] Invalid light handle!" );
+        }
+        break;
+      }
+
+      case RemixApi_DrawLightInstance:
+      {
+        HandleUID handle = remixapi::pullHandle();
+        const bool bHandleIsValid =
+          handle.isValid() && gMapRemixApi.find(handle) != gMapRemixApi.cend();
+        assert(bHandleIsValid);
+        if(bHandleIsValid) {
+          auto lightHandle = (remixapi_LightHandle)gMapRemixApi[handle];
+          remixapi::g_remix.DrawLightInstance(lightHandle);
+        } else {
+          Logger::err("[RemixApi_DrawLightInstance] Invalid light handle!" );
+        }
+        break;
+      }
+
+      case RemixApi_SetConfigVariable:
+      {
+        void* var_ptr = nullptr;
+        const uint32_t var_size = DeviceBridge::getReaderChannel().data->pull(&var_ptr);
+        std::string var_str((const char*) var_ptr, var_size);
+
+        void* value_ptr = nullptr;
+        const uint32_t value_size = DeviceBridge::getReaderChannel().data->pull(&value_ptr);
+        std::string value_str((const char*) value_ptr, value_size);
+
+        remixapi::g_remix.SetConfigVariable(var_str.c_str(), value_str.c_str());
+        break;
+      }
+
+      case RemixApi_CreateD3D9:
+      {
+        Logger::err("[RemixApi_CreateD3D9] Not yet supported. Device used by Remix API defaults to "
+                                          "most recently created by client application.");
+        break;
+      }
+
+      case RemixApi_RegisterDevice:
+      {
+        Logger::err("[RemixApi_RegisterDevice] Not yet supported. Device used by Remix API defaults to "
+                                              "most recently created by client application.");
+        break;
+      }
+      
       default:
         break;
       }
@@ -2783,6 +3185,16 @@ bool InitializeD3D() {
       return false;
     } else {
       Logger::info("D3D9 interface object creation succeeded!");
+    }
+    // Initialize remixApi
+    if (GlobalOptions::getExposeRemixApi()) {
+      remixapi_ErrorCode status = remixapi_lib_loadRemixDllAndInitialize(L"d3d9.dll", &remixapi::g_remix, &remixapi::g_remix_dll);
+      if (status != REMIXAPI_ERROR_CODE_SUCCESS) {
+        Logger::err(format_string("[RemixApi] RemixApi initialization failed: %d\n", status));
+      } else {
+        remixapi::g_remix_initialized = true;
+        Logger::info("[RemixApi] Initialized RemixApi.");
+      }
     }
   } else {
     Logger::err(format_string("d3d9.dll loading failed: %ld\n", GetLastError()));

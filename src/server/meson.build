@@ -22,12 +22,14 @@
 
 server_src = files([
 	'main.cpp',
-	'module_processing.cpp'
+	'module_processing.cpp',
+	'remix_api.cpp'
 ])
 
 server_header = files([
 	'module_processing.h',
-	'server_options.h'
+	'server_options.h',
+	'remix_api.h'
 ])
 
 thread_dep = dependency('threads')
@@ -48,7 +50,7 @@ server_exe = executable('NvRemixBridge', server_src, server_header, server_versi
 sources             : [ bridge_version ],
 build_by_default    : (cpu_family == 'x86_64') ? true : false,
 dependencies        : [ thread_dep, util_dep, lib_version, tracy_dep ],
-include_directories : [ bridge_include_path, util_include_path ],
+include_directories : [ bridge_include_path, util_include_path, public_include_path, ext_include_path ],
 win_subsystem       : 'windows')
 
 

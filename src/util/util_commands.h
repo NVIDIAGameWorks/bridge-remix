@@ -28,7 +28,7 @@
 
 namespace Commands {
   // The complete set of D3D9 interfaces
-  enum D3D9Command: uint16_t {
+  enum D3D9Command : uint16_t {
     Bridge_Terminate = std::numeric_limits<uint16_t>::max(),
     Bridge_Invalid = 0,
     Bridge_Syn,
@@ -37,6 +37,18 @@ namespace Commands {
     Bridge_Any,
     Bridge_Response,
     Bridge_DebugMessage,
+
+    RemixApi_CreateMaterial,
+    RemixApi_DestroyMaterial,
+    RemixApi_CreateMesh,
+    RemixApi_DestroyMesh,
+    RemixApi_DrawInstance,
+    RemixApi_CreateLight,
+    RemixApi_DestroyLight,
+    RemixApi_DrawLightInstance,
+    RemixApi_SetConfigVariable,
+    RemixApi_CreateD3D9,
+    RemixApi_RegisterDevice,
 
     Bridge_SharedHeap_AddSeg,
     Bridge_SharedHeap_Alloc,
@@ -463,6 +475,18 @@ namespace Commands {
     case Bridge_Any: return "Any";
     case Bridge_Response: return "Response";
     case Bridge_DebugMessage: return "DebugMessage";
+
+    case RemixApi_CreateMaterial: return "RemixApi_CreateMaterial";
+    case RemixApi_DestroyMaterial: return "RemixApi_DestroyMaterial";
+    case RemixApi_CreateMesh: return "RemixApi_CreateMesh";
+    case RemixApi_DestroyMesh: return "RemixApi_DestroyMesh";
+    case RemixApi_DrawInstance: return "RemixApi_DrawInstance";
+    case RemixApi_CreateLight: return "RemixApi_CreateLight";
+    case RemixApi_DestroyLight: return "RemixApi_DestroyLight";
+    case RemixApi_DrawLightInstance: return "DrawLightInstance";
+    case RemixApi_SetConfigVariable: return "RemixApi_SetConfigVariable";
+    case RemixApi_CreateD3D9: return "RemixApi_CreateD3D9";
+    case RemixApi_RegisterDevice: return "RemixApi_RegisterDevice";
 
     case Bridge_SharedHeap_AddSeg: return "SharedHeap_AddSeg";
     case Bridge_SharedHeap_Alloc: return "SharedHeap_Alloc";

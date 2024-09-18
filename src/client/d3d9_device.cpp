@@ -39,6 +39,7 @@
 #include "client_options.h"
 #include "swapchain_map.h"
 #include "config/global_options.h"
+#include "remix_api.h"
 
 #include "util_bridge_assert.h"
 #include "util_semaphore.h"
@@ -491,6 +492,10 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Present(CONST RECT* pSourceRect, CONS
   // to send keyboard state to the server.
   if (!gbBridgeRunning) {
     return hresult;
+  }
+
+  if(remixapi::g_bInterfaceInitialized && remixapi::g_presentCallback) {
+    remixapi::g_presentCallback();
   }
 
   // Seeing this in the log could indicate the game is sending inputs to a different window
@@ -1096,6 +1101,10 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::BeginScene() {
       gSceneState = SceneInProgress;
     }
   }
+  
+  if (remixapi::g_bInterfaceInitialized && remixapi::g_beginSceneCallback) {
+    remixapi::g_beginSceneCallback();
+  }
 
   UID currentUID = 0;
   {
@@ -1115,6 +1124,10 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::EndScene() {
     if (gSceneState == SceneInProgress) {
       gSceneState = SceneEnded;
     }
+  }
+
+  if (remixapi::g_bInterfaceInitialized && remixapi::g_endSceneCallback) {
+    remixapi::g_endSceneCallback();
   }
 
   UID currentUID = 0;

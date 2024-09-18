@@ -243,6 +243,11 @@ public:
   static const bool getAlwaysCopyEntireStaticBuffer() {
     return get().alwaysCopyEntireStaticBuffer;
   }
+  
+
+  static bool getExposeRemixApi() {
+    return get().exposeRemixApi;
+  }
 
 private:
   GlobalOptions() = default;
@@ -414,6 +419,8 @@ private:
     // If set and a buffer is not dynamic, vertex and index buffer lock/unlocks will ignore the bounds set during the lock call
     // and the brifge will copy the entire buffer. This means
     alwaysCopyEntireStaticBuffer = bridge_util::Config::getOption<bool>("alwaysCopyEntireStaticBuffer", false);
+  
+    exposeRemixApi = bridge_util::Config::getOption<bool>("exposeRemixApi", false);
   }
 
   void initSharedHeapPolicy();
@@ -464,4 +471,5 @@ private:
   uint32_t sharedHeapFreeChunkWaitTimeout;
   uint32_t threadSafetyPolicy;
   bool alwaysCopyEntireStaticBuffer;
+  bool exposeRemixApi;
 };

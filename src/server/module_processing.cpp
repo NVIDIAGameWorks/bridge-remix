@@ -4,6 +4,8 @@
 
 #include "module_processing.h"
 
+#include "remix_api.h"
+
 #include "util_bridge_assert.h"
 #include "util_modulecommand.h"
 
@@ -366,6 +368,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
       } else {
         Logger::info("Server side D3D9 DeviceEx created successfully!");
         gpD3DDevices[pHandle] = pD3DDevice;
+        remixapi::g_device = pD3DDevice;
       }
 
       // Send response back to the client
@@ -397,6 +400,7 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
       } else {
         Logger::info("Server side D3D9 Device created successfully!");
         gpD3DDevices[pHandle] = (IDirect3DDevice9Ex*) pD3DDevice;
+        remixapi::g_device = (IDirect3DDevice9Ex*) pD3DDevice;
       }
 
       // Send response back to the client

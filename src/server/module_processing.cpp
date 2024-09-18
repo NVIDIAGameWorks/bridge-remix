@@ -17,16 +17,6 @@ using namespace Commands;
 
 // Mapping between client and server pointer addresses
 extern LPDIRECT3D9 gpD3D;
-extern std::unordered_map<uint32_t, IDirect3DDevice9*> gpD3DDevices;
-extern std::unordered_map<uint32_t, IDirect3DResource9*> gpD3DResources; // For Textures, Buffers, and Surfaces
-extern std::unordered_map<uint32_t, IDirect3DVolume9*> gpD3DVolumes;
-extern std::unordered_map<uint32_t, IDirect3DVertexDeclaration9*> gpD3DVertexDeclarations;
-extern std::unordered_map<uint32_t, IDirect3DStateBlock9*> gpD3DStateBlocks;
-extern std::unordered_map<uint32_t, IDirect3DVertexShader9*> gpD3DVertexShaders;
-extern std::unordered_map<uint32_t, IDirect3DPixelShader9*> gpD3DPixelShaders;
-extern std::unordered_map<uint32_t, IDirect3DSwapChain9*> gpD3DSwapChains;
-
-extern std::mutex gLock;
 
 #define PULL(type, name) const auto& name = (type)ModuleBridge::get_data()
 #define PULL_I(name) PULL(INT, name)
@@ -94,7 +84,6 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
       Logger::info("Module Processing: " + toString(rpcHeader.command) + " UID: " + std::to_string(currentUID));
     }
 #endif
-    std::unique_lock<std::mutex> lock(gLock);
     // The mother of all switch statements - every call in the D3D9 interface is mapped here...
     switch (rpcHeader.command) {
       /*
@@ -345,72 +334,6 @@ void processModuleCommandQueue(std::atomic<bool>* const pbSignalEnd) {
         }
         break;
       }
-    case IDirect3D9Ex_CreateDeviceEx:
-    {
-      GET_HND(pHandle);
-      PULL_U(Adapter);
-      PULL(D3DDEVTYPE, DeviceType);
-      PULL(uint32_t, hFocusWindow);
-      PULL_D(BehaviorFlags);
-      D3DDISPLAYMODEEX* pFullscreenDisplayMode = nullptr;
-      PULL_DATA(sizeof(D3DDISPLAYMODEEX), pFullscreenDisplayMode);
-
-      uint32_t* rawPresentationParameters = nullptr;
-      ModuleBridge::get_data((void**) &rawPresentationParameters);
-      D3DPRESENT_PARAMETERS PresentationParameters = getPresParamFromRaw(rawPresentationParameters);
-
-      IDirect3DDevice9Ex* pD3DDevice = nullptr;
-      const auto hresult = ((IDirect3D9Ex*) gpD3D)->CreateDeviceEx(IN Adapter, IN DeviceType, IN TRUNCATE_HANDLE(HWND, hFocusWindow), IN BehaviorFlags, IN OUT & PresentationParameters, IN pFullscreenDisplayMode, OUT & pD3DDevice);
-      if (!SUCCEEDED(hresult)) {
-        std::stringstream ss;
-        ss << format_string("CreateDeviceEx() call failed with error code 0x%x", hresult) << std::endl;
-        Logger::err(ss.str());
-      } else {
-        Logger::info("Server side D3D9 DeviceEx created successfully!");
-        gpD3DDevices[pHandle] = pD3DDevice;
-        remixapi::g_device = pD3DDevice;
-      }
-
-      // Send response back to the client
-      Logger::debug("Sending CreateDevice ack response back to client.");
-      {
-        ModuleServerCommand c(Commands::Bridge_Response, currentUID);
-        c.send_data(hresult);
-      }
-      break;
-    }
-    case IDirect3D9Ex_CreateDevice:
-    {
-      GET_HND(pHandle);
-      PULL_U(Adapter);
-      PULL(D3DDEVTYPE, DeviceType);
-      PULL(uint32_t, hFocusWindow);
-      PULL_D(BehaviorFlags);
-
-      uint32_t* rawPresentationParameters = nullptr;
-      ModuleBridge::get_data((void**) &rawPresentationParameters);
-      D3DPRESENT_PARAMETERS PresentationParameters = getPresParamFromRaw(rawPresentationParameters);
-
-      IDirect3DDevice9* pD3DDevice = nullptr;
-      const auto hresult = gpD3D->CreateDevice(IN Adapter, IN DeviceType, IN TRUNCATE_HANDLE(HWND, hFocusWindow), IN BehaviorFlags, IN OUT & PresentationParameters, OUT & pD3DDevice);
-      if (!SUCCEEDED(hresult)) {
-        std::stringstream ss;
-        ss << format_string("CreateDevice() call failed with error code 0x%x", hresult) << std::endl;
-        Logger::err(ss.str());
-      } else {
-        Logger::info("Server side D3D9 Device created successfully!");
-        gpD3DDevices[pHandle] = (IDirect3DDevice9Ex*) pD3DDevice;
-        remixapi::g_device = (IDirect3DDevice9Ex*) pD3DDevice;
-      }
-
-      // Send response back to the client
-      Logger::debug("Sending CreateDevice ack response back to client.");
-      {
-        ModuleServerCommand c(Commands::Bridge_Response, currentUID);
-        c.send_data(hresult);
-      }
-      break;
-    }
     }
   }
   // Check if we exited the command processing loop unexpectedly while the bridge is still enabled

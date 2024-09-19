@@ -329,7 +329,10 @@ void ProcessDeviceCommandQueue() {
         } else {
           Logger::info("Server side D3D9 DeviceEx created successfully!");
           gpD3DDevices[pHandle] = pD3DDevice;
-          remixapi::g_device = pD3DDevice;
+          if(GlobalOptions::getExposeRemixApi()) {
+            remixapi::g_device = pD3DDevice;
+            remixapi::g_remix.dxvk_RegisterD3D9Device(remixapi::g_device);
+          }
         }
 
         // Send response back to the client
@@ -361,7 +364,10 @@ void ProcessDeviceCommandQueue() {
         } else {
           Logger::info("Server side D3D9 Device created successfully!");
           gpD3DDevices[pHandle] = (IDirect3DDevice9Ex*) pD3DDevice;
-          remixapi::g_device = (IDirect3DDevice9Ex*) pD3DDevice;
+          if(GlobalOptions::getExposeRemixApi()) {
+            remixapi::g_device = (IDirect3DDevice9Ex*) pD3DDevice;
+            remixapi::g_remix.dxvk_RegisterD3D9Device(remixapi::g_device);
+          }
         }
 
         // Send response back to the client

@@ -90,21 +90,33 @@ static inline constexpr uint32_t sizeOf<remixapi_Transform>() {
 }
 
 // remixapi_Path
+static inline uint32_t pathSize(const remixapi_Path& path) {
+  return (path ? wcslen(path) + 1 : 0) * sizeof(wchar_t);
+}
 template<>
 static inline uint32_t sizeOf(const remixapi_Path& path) {
-  return (wcslen(path) + 1) * sizeof(wchar_t);
+  return sizeOf<bool>() + pathSize(path);
 }
 template<>
 void serialize(const remixapi_Path& serializeFrom, void*& pSerialize) {
-  serialize(serializeFrom, pSerialize, sizeOf(serializeFrom));
+  serialize((serializeFrom) ? true : false, pSerialize);
+  if (serializeFrom) {
+    serialize(serializeFrom, pSerialize, pathSize(serializeFrom));
+  }
 }
 template<>
 void deserialize(void*& deserializeFrom, remixapi_Path& deserializeTo) {
-  const uint32_t size = sizeOf(reinterpret_cast<const remixapi_Path&>(deserializeFrom));
-  assert(size <= MAX_PATH);
-  auto intermediate = new wchar_t[size];
-  deserialize(deserializeFrom, intermediate, size);
-  deserializeTo = intermediate;
+  bool bIsValidString = false;
+  deserialize(deserializeFrom, bIsValidString);
+  if(bIsValidString) {
+    const uint32_t size = pathSize(reinterpret_cast<const remixapi_Path&>(deserializeFrom));
+    assert(size <= MAX_PATH);
+    auto intermediate = new wchar_t[size];
+    deserialize(deserializeFrom, intermediate, size);
+    deserializeTo = intermediate;
+  } else {
+    deserializeTo = nullptr;
+  }
 }
 
 // remixapi_HardcodedVertex

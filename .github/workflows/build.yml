@@ -44,9 +44,10 @@ jobs:
       run: copy artifacts_readme.txt _output
     
     - name: Upload binaries
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: bridge-remix-${{env.GITHUB_SHA_SHORT}}-${{github.run_number}}-${{matrix.build-flavour}}
+        include-hidden-files: true
         path: |
           _output\*.dll
           _output\*.exe

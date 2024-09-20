@@ -186,11 +186,14 @@ void Direct3DStateBlock9_LSS::StateTransfer(const BaseDirect3DDevice9Ex_LSS::Sta
 }
 
 void Direct3DStateBlock9_LSS::LocalCapture() {
-  StateTransfer(m_dirtyFlags, m_captureState, m_pDevice->m_state);
+  StateTransfer(m_dirtyFlags, m_pDevice->m_state, m_captureState);
 }
 
 HRESULT Direct3DStateBlock9_LSS::Capture() {
   LogFunctionCall();
+  if (m_pDevice->m_stateRecording) {
+    return D3DERR_INVALIDCALL;
+  }
   LocalCapture();
   {
     ClientMessage { Commands::IDirect3DStateBlock9_Capture, getId() };
@@ -200,7 +203,7 @@ HRESULT Direct3DStateBlock9_LSS::Capture() {
 
 HRESULT Direct3DStateBlock9_LSS::Apply() {
   LogFunctionCall();
-  StateTransfer(m_dirtyFlags, m_pDevice->m_state, m_captureState);
+  StateTransfer(m_dirtyFlags, m_captureState, m_pDevice->m_state);
   {
     ClientMessage { Commands::IDirect3DStateBlock9_Apply, getId() };
   }

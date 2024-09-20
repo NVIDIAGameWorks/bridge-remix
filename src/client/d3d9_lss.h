@@ -152,7 +152,7 @@ public:
 
   void LocalCapture();
 
-  struct BaseDirect3DDevice9Ex_LSS::StateCaptureDirtyFlags m_dirtyFlags;
+  struct BaseDirect3DDevice9Ex_LSS::StateCaptureDirtyFlags m_dirtyFlags = { 0 };
   struct BaseDirect3DDevice9Ex_LSS::State m_captureState;
   void StateTransfer(const BaseDirect3DDevice9Ex_LSS::StateCaptureDirtyFlags& flags, BaseDirect3DDevice9Ex_LSS::State& src, BaseDirect3DDevice9Ex_LSS::State& dst);
 

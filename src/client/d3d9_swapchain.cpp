@@ -260,7 +260,7 @@ HRESULT Direct3DSwapChain9_LSS::GetBackBuffer(UINT iBackBuffer, D3DBACKBUFFER_TY
   desc.Pool = D3DPOOL_DEFAULT;
   desc.Type = D3DRTYPE_SURFACE;
 
-  Direct3DSurface9_LSS* pLssSurface = trackWrapper(new Direct3DSurface9_LSS(m_pDevice, this, desc));
+  Direct3DSurface9_LSS* pLssSurface = trackWrapper(new Direct3DSurface9_LSS(m_pDevice, this, desc, true));
   setChild(iBackBuffer, pLssSurface);
     
   (*ppBackBuffer) = pLssSurface;

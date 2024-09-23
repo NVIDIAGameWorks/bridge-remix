@@ -2521,7 +2521,11 @@ void ProcessDeviceCommandQueue() {
       }
       case IDirect3DSurface9_LockRect:
       {
-        // This is a no-op right now because we're doing all the logic on Unlock
+        // Currently we only recieve calls for LockRect in cases where backbuffer data is to be copied for screenshots
+        GET_HND(pHandle);
+        const auto pSurface = (IDirect3DSurface9*) gpD3DResources[pHandle];
+        HRESULT hresult = ReturnSurfaceDataToClient(pSurface, S_OK, currentUID);
+        assert(SUCCEEDED(hresult));
         break;
       }
       case IDirect3DSurface9_UnlockRect:

@@ -53,15 +53,18 @@ class Direct3DSurface9_LSS: public Direct3DResource9_LSS<IDirect3DSurface9> {
 
 public:
   Direct3DSurface9_LSS(BaseDirect3DDevice9Ex_LSS* const pDevice,
-                       const D3DSURFACE_DESC& desc);
+                       const D3DSURFACE_DESC& desc, 
+                       bool isBackBuffer = false);
 
   template<typename ContainerType>
   Direct3DSurface9_LSS(BaseDirect3DDevice9Ex_LSS* const pDevice,
                        ContainerType* const pContainer,
-                       const D3DSURFACE_DESC& desc)
+                       const D3DSURFACE_DESC& desc, 
+                       bool isBackBuffer = false)
     : Direct3DResource9_LSS((IDirect3DSurface9*)nullptr, pDevice, pContainer)
     , m_bUseSharedHeap(GlobalOptions::getUseSharedHeapForTextures())
-    , m_desc(desc) {
+    , m_desc(desc)
+    , m_isBackBuffer(isBackBuffer) {
   }
 
   ~Direct3DSurface9_LSS();
@@ -89,6 +92,7 @@ public:
 
 private:
   /*** Lock/Unlock Functionality ***/
+  bool m_isBackBuffer;
   bool lock(D3DLOCKED_RECT& lockedRect, const RECT* pRect, const DWORD& flags);
   void unlock();
   static RECT resolveLockInfoRect(const RECT* const pRect, const D3DSURFACE_DESC& desc);

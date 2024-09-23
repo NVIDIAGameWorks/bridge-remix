@@ -27,14 +27,17 @@
 #include "d3d9_texture.h"
 #include "d3d9_cubetexture.h"
 
+#include "d3d9_surfacebuffer_helper.h"
 #include "util_bridge_assert.h"
 #include "util_gdi.h"
 
 Direct3DSurface9_LSS::Direct3DSurface9_LSS(BaseDirect3DDevice9Ex_LSS* const pDevice,
-                                           const D3DSURFACE_DESC& desc)
+                                           const D3DSURFACE_DESC& desc, bool isBackBuffer)
   : Direct3DResource9_LSS((IDirect3DSurface9*)nullptr, pDevice)
   , m_bUseSharedHeap(GlobalOptions::getUseSharedHeapForTextures())
-  , m_desc(desc) {
+  , m_desc(desc)
+  , m_isBackBuffer(isBackBuffer)
+{
 }
 
 Direct3DSurface9_LSS::~Direct3DSurface9_LSS() {
@@ -129,7 +132,18 @@ HRESULT Direct3DSurface9_LSS::LockRect(D3DLOCKED_RECT* pLockedRect, CONST RECT* 
       return E_FAIL;
     }
   }
-  // Do nothing on lock on server side for now, all logic happens on unlock!
+
+  // We send LockRect() calls to server in cases wherein backbuffer is used to capture the screenshot
+  if (m_isBackBuffer && ClientOptions::getEnableBackbufferCapture() && !(Flags & D3DLOCK_DISCARD)) {
+    UID currentUID;
+    {
+      ClientMessage c(Commands::IDirect3DSurface9_LockRect, getId());
+      currentUID = c.get_uid();
+    }
+
+    return copyServerSurfaceRawData(this, currentUID);
+  }
+
   return S_OK;
 }
 

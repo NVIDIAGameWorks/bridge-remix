@@ -59,7 +59,8 @@ public:
         m_presParam.BackBufferWidth,
         m_presParam.BackBufferHeight
       };
-      auto* const pLssBackBuffer = trackWrapper(new Direct3DSurface9_LSS(pDevice, this, backBufferDesc));
+      auto* const pLssBackBuffer = trackWrapper(new Direct3DSurface9_LSS(pDevice, this, backBufferDesc, true));
+
       setChild(childIdx, pLssBackBuffer);
       UID currentUID = 0;
       {

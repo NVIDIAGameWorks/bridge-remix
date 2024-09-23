@@ -51,6 +51,10 @@ namespace ClientOptions {
     return bridge_util::Config::getOption<bool>("client.DirectInput.disableExclusiveInput", false);
   }
 
+  inline bool getEnableBackbufferCapture() {
+    return bridge_util::Config::getOption<bool>("client.enableBackbufferCapture", false);
+  }
+
   inline DI::ForwardPolicy getForwardDirectInputMousePolicy() {
     return (DI::ForwardPolicy)bridge_util::Config::getOption<int>("client.DirectInput.forward.mousePolicy", DI::RemixUIActive);
   }

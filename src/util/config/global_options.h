@@ -249,6 +249,10 @@ public:
     return get().exposeRemixApi;
   }
 
+  static bool getEliminateRedundantSetterCalls() {
+    return get().eliminateRedundantSetterCalls;
+  }
+
 private:
   GlobalOptions() = default;
 
@@ -421,6 +425,10 @@ private:
     alwaysCopyEntireStaticBuffer = bridge_util::Config::getOption<bool>("alwaysCopyEntireStaticBuffer", false);
   
     exposeRemixApi = bridge_util::Config::getOption<bool>("exposeRemixApi", false);
+
+    // If set, the bridge client will not send certain setter calls to the bridge server if the client knows the setter is writing
+    // the the same value that is currently stored.
+    eliminateRedundantSetterCalls = bridge_util::Config::getOption<bool>("eliminateRedundantSetterCalls", false);
   }
 
   void initSharedHeapPolicy();
@@ -472,4 +480,5 @@ private:
   uint32_t threadSafetyPolicy;
   bool alwaysCopyEntireStaticBuffer;
   bool exposeRemixApi;
+  bool eliminateRedundantSetterCalls;
 };

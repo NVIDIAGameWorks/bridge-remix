@@ -1209,13 +1209,16 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetTransform(D3DTRANSFORMSTATETYPE St
     {
       BRIDGE_DEVICE_LOCKGUARD();
       if (m_stateRecording) {
-        if (m_stateRecording->m_dirtyFlags.transforms[idx] && memcmp(&m_stateRecording->m_captureState.transforms[idx], pMatrix, sizeof(D3DMATRIX)) == 0) {
+        if (GlobalOptions::getEliminateRedundantSetterCalls() &&
+            m_stateRecording->m_dirtyFlags.transforms[idx] &&
+            memcmp(&m_stateRecording->m_captureState.transforms[idx], pMatrix, sizeof(D3DMATRIX)) == 0) {
           return S_OK;
         }
         m_stateRecording->m_captureState.transforms[idx] = *pMatrix;
         m_stateRecording->m_dirtyFlags.transforms[idx] = true;
       } else {
-        if (memcmp(&m_state.transforms[idx], pMatrix, sizeof(D3DMATRIX)) == 0) {
+        if (GlobalOptions::getEliminateRedundantSetterCalls() &&
+            memcmp(&m_state.transforms[idx], pMatrix, sizeof(D3DMATRIX)) == 0) {
           return S_OK;
         }
         m_state.transforms[idx] = *pMatrix;
@@ -1386,13 +1389,16 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetLight(DWORD Index, CONST D3DLIGHT9
     {
       BRIDGE_DEVICE_LOCKGUARD();
       if (m_stateRecording) {
-        if (m_stateRecording->m_dirtyFlags.lights[Index] && memcmp(&m_stateRecording->m_captureState.lights[Index], pLight, sizeof(D3DLIGHT9)) == 0) {
+        if (GlobalOptions::getEliminateRedundantSetterCalls() &&
+            m_stateRecording->m_dirtyFlags.lights[Index] &&
+            memcmp(&m_stateRecording->m_captureState.lights[Index], pLight, sizeof(D3DLIGHT9)) == 0) {
           return S_OK;
         }
         m_stateRecording->m_captureState.lights[Index] = *pLight;
         m_stateRecording->m_dirtyFlags.lights[Index] = true;
       } else {
-        if (memcmp(&m_state.lights[Index], pLight, sizeof(D3DLIGHT9)) == 0) {
+        if (GlobalOptions::getEliminateRedundantSetterCalls() &&
+            memcmp(&m_state.lights[Index], pLight, sizeof(D3DLIGHT9)) == 0) {
           return S_OK;
         }
         m_state.lights[Index] = *pLight;
@@ -1434,13 +1440,16 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::LightEnable(DWORD LightIndex, BOOL bE
     {
       BRIDGE_DEVICE_LOCKGUARD();
       if (m_stateRecording) {
-        if (m_stateRecording->m_dirtyFlags.bLightEnables[LightIndex] && (m_stateRecording->m_captureState.bLightEnables[LightIndex] == (bool)bEnable)) {
+        if (GlobalOptions::getEliminateRedundantSetterCalls() &&
+            m_stateRecording->m_dirtyFlags.bLightEnables[LightIndex] &&
+            (m_stateRecording->m_captureState.bLightEnables[LightIndex] == (bool)bEnable)) {
           return S_OK;
         }
         m_stateRecording->m_captureState.bLightEnables[LightIndex] = bEnable;
         m_stateRecording->m_dirtyFlags.bLightEnables[LightIndex] = true;
       } else {
-        if (m_state.bLightEnables[LightIndex] == (bool)bEnable) {
+        if (GlobalOptions::getEliminateRedundantSetterCalls() &&
+            m_state.bLightEnables[LightIndex] == (bool)bEnable) {
           return S_OK;
         }
         m_state.bLightEnables[LightIndex] = bEnable;
@@ -1534,13 +1543,15 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetRenderState(D3DRENDERSTATETYPE Sta
     {
       BRIDGE_DEVICE_LOCKGUARD();
       if (m_stateRecording) {
-        if (m_stateRecording->m_dirtyFlags.renderStates[State] && m_stateRecording->m_captureState.renderStates[State] == Value) {
+        if (GlobalOptions::getEliminateRedundantSetterCalls() &&
+            m_stateRecording->m_dirtyFlags.renderStates[State] && m_stateRecording->m_captureState.renderStates[State] == Value) {
           return S_OK;
         }
         m_stateRecording->m_captureState.renderStates[State] = Value;
         m_stateRecording->m_dirtyFlags.renderStates[State] = true;
       } else {
-        if (m_state.renderStates[State] == Value) {
+        if (GlobalOptions::getEliminateRedundantSetterCalls() &&
+            m_state.renderStates[State] == Value) {
           return S_OK;
         }
         m_state.renderStates[State] = Value;
@@ -2079,13 +2090,15 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetTextureStageState(DWORD Stage, D3D
     {
       BRIDGE_DEVICE_LOCKGUARD();
       if (m_stateRecording) {
-        if (m_stateRecording->m_dirtyFlags.textureStageStates[stageIdx][typeIdx] && m_stateRecording->m_captureState.textureStageStates[stageIdx][typeIdx] == Value) {
+        if (GlobalOptions::getEliminateRedundantSetterCalls() &&
+            m_stateRecording->m_dirtyFlags.textureStageStates[stageIdx][typeIdx] && m_stateRecording->m_captureState.textureStageStates[stageIdx][typeIdx] == Value) {
           return S_OK;
         }
         m_stateRecording->m_captureState.textureStageStates[stageIdx][typeIdx] = Value;
         m_stateRecording->m_dirtyFlags.textureStageStates[stageIdx][typeIdx] = true;
       } else {
-        if (m_state.textureStageStates[stageIdx][typeIdx] == Value) {
+        if (GlobalOptions::getEliminateRedundantSetterCalls() &&
+            m_state.textureStageStates[stageIdx][typeIdx] == Value) {
           return S_OK;
         }
         m_state.textureStageStates[stageIdx][typeIdx] = Value;
@@ -2136,13 +2149,16 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetSamplerState(DWORD Sampler, D3DSAM
     {
       BRIDGE_DEVICE_LOCKGUARD();
       if (m_stateRecording) {
-        if (m_stateRecording->m_dirtyFlags.samplerStates[samplerIdx][typeIdx] && m_stateRecording->m_captureState.samplerStates[samplerIdx][typeIdx] == Value) {
+        if (GlobalOptions::getEliminateRedundantSetterCalls() &&
+            m_stateRecording->m_dirtyFlags.samplerStates[samplerIdx][typeIdx] &&
+            m_stateRecording->m_captureState.samplerStates[samplerIdx][typeIdx] == Value) {
           return S_OK;
         }
         m_stateRecording->m_captureState.samplerStates[samplerIdx][typeIdx] = Value;
         m_stateRecording->m_dirtyFlags.samplerStates[samplerIdx][typeIdx] = true;
       } else {
-        if (m_state.samplerStates[samplerIdx][typeIdx] == Value) {
+        if (GlobalOptions::getEliminateRedundantSetterCalls() && 
+            m_state.samplerStates[samplerIdx][typeIdx] == Value) {
           return S_OK;
         }
         m_state.samplerStates[samplerIdx][typeIdx] = Value;

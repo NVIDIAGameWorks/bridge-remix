@@ -33,7 +33,10 @@ all_exts = header_exts + src_exts
 def generate_bridge_project(output_root_path, bridge_cpp_defines):
     tree = { }
     vcxproj_file_references = []
-    vcxproj_include_paths = { }
+    vcxproj_include_paths = {
+        "../ext": 1,
+        "../public/include": 1,
+    }
     
     def add_file(dirpath, filename):
         tree[dirpath].append(filename)

@@ -27,6 +27,7 @@
 #include <remixapi/bridge_remix_api.h>
 
 #include <typeinfo>
+#include <unordered_map>
 
 #define ASSERT_REMIXAPI_PFN_TYPE(REMIXAPI_FN_NAME) static_assert(std::is_same_v< decltype(&REMIXAPI_FN_NAME), PFN_##REMIXAPI_FN_NAME >)
 
@@ -34,39 +35,52 @@ namespace remixapi {
 
 namespace util {
 
-struct HandleUID {
+template<typename T>
+struct Handle {
+  using RemixApiHandleT = T;
   const uint32_t uid = 0;
-  HandleUID(const HandleUID& handle) = default;
-  HandleUID(HandleUID&& handle) = default;
+  Handle(const Handle& handle) = default;
+  Handle(Handle&& handle) = default;
+  Handle(const RemixApiHandleT p) : uid((uint32_t)(uintptr_t)(p)) {
+    assert(isValid());
+  }
+
 #ifdef REMIX_BRIDGE_CLIENT
   static inline uint32_t nextUid = 1;
-  HandleUID() : uid(nextUid++) {}
-#endif
-  template<typename T>
-  HandleUID(const T* const p) : uid((uint32_t)(uintptr_t)(p)) {
-    static_assert(std::is_pointer_v<T*>);
+  Handle() : uid(nextUid++) { }
+  operator RemixApiHandleT() {
+    return reinterpret_cast<RemixApiHandleT>((uintptr_t)uid);
   }
-  template<typename T>
-  operator T*() {
-    static_assert(std::is_pointer_v<T*>);
-    return reinterpret_cast<T*>((uintptr_t)uid);
-  }
-#ifdef REMIX_BRIDGE_SERVER
-  HandleUID(const uint32_t val) : uid(val) {}
-  operator uint32_t () {
-    return uid;
-  }
-#endif
   bool isValid() const {
-#ifdef REMIX_BRIDGE_CLIENT
-    return uid > 0 && uid < nextUid;
-#endif
-#ifdef REMIX_BRIDGE_SERVER
-    return uid > 0;
-#endif
+    return (uid > 0) && (uid < nextUid);
   }
+#endif
+
+#ifdef REMIX_BRIDGE_SERVER
+  using HandleMapT = std::unordered_map<uint32_t, RemixApiHandleT>;
+  static HandleMapT s_handleMap;
+  Handle(const uint32_t _uid) : uid(_uid) {
+    assert(isValid());
+  }
+  Handle(const uint32_t _uid, const RemixApiHandleT remixHandle) : uid(_uid) {
+    s_handleMap[uid] = remixHandle;
+  }
+  operator RemixApiHandleT() {
+    assert(isValid());
+    return s_handleMap[uid];
+  }
+  bool isValid() const {
+    return (uid > 0)
+        && (s_handleMap.find(uid) != s_handleMap.cend());
+  }
+  void invalidate() {
+    s_handleMap.erase(uid);
+  }
+#endif
 };
-static_assert(sizeof(HandleUID::uid) == sizeof(HandleUID));
+using MaterialHandle = Handle<remixapi_MaterialHandle>;
+using MeshHandle = Handle<remixapi_MeshHandle>;
+using LightHandle = Handle<remixapi_LightHandle>;
 
 struct AnyInfoPrototype {
   remixapi_StructType sType;

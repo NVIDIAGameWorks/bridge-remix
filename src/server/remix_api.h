@@ -40,10 +40,6 @@ namespace remixapi {
     return (remixapi_StructType) DeviceBridge::get_data();
   }
   
-  static inline util::HandleUID pullHandle() {
-    return DeviceBridge::get_data();
-  }
-
   static inline bool pullBool() {
     const auto boolVal = (Bool)DeviceBridge::get_data();
     // Since standalone values are pushed/pulled at a DWORD resolution

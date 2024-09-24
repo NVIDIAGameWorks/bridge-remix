@@ -3727,7 +3727,7 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::ResetState() {
 
   // Reset Light States
   for (uint32_t i = 0; i < caps::MaxEnabledLights; ++i) {
-    m_state.bLightEnables[i] = 1;
+    m_state.bLightEnables[i] = 0;
   }
 
   // Reset Stream Frequency

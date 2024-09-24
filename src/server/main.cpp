@@ -2836,12 +2836,10 @@ void ProcessDeviceCommandQueue() {
           bMatExtExists = remixapi::pullBool();
         }
 
-        HandleUID handle = remixapi::pullHandle();
-        assert(handle.isValid());
-
-        remixapi_MaterialHandle matHandle = nullptr;
-        if(remixapi::g_remix.CreateMaterial(&matInfo, &matHandle) == REMIXAPI_ERROR_CODE_SUCCESS) {
-          gMapRemixApi.emplace(handle, matHandle);
+        auto bridgeHandle = DeviceBridge::get_data();
+        remixapi_MaterialHandle remixApiHandle = nullptr;
+        if(remixapi::g_remix.CreateMaterial(&matInfo, &remixApiHandle) == REMIXAPI_ERROR_CODE_SUCCESS) {
+          MaterialHandle(bridgeHandle, remixApiHandle);
         } else {
           Logger::err("[RemixApi_CreateMaterial] Remix API call failed!");
         }
@@ -2851,13 +2849,10 @@ void ProcessDeviceCommandQueue() {
 
       case RemixApi_DestroyMaterial:
       {
-        HandleUID handle = remixapi::pullHandle();
-        const bool bHandleIsValid =
-          handle.isValid() && gMapRemixApi.find(handle) != gMapRemixApi.cend();
-        assert(bHandleIsValid);
-        if(bHandleIsValid) {
+        MaterialHandle handle(DeviceBridge::get_data());
+        if(handle.isValid()) {
           remixapi::g_remix.DestroyMaterial(handle);
-          gMapRemixApi.erase(handle);
+          handle.invalidate();
         } else {
           Logger::err("[RemixApi_DestroyMaterial] Invalid material handle!" );
         }
@@ -2878,18 +2873,14 @@ void ProcessDeviceCommandQueue() {
           // the remixapi_MeshInfo's member const qualifier and reassign
           // remixapi_MeshInfoSurfaceTriangles::material.
           auto& surf = const_cast<remixapi_MeshInfoSurfaceTriangles&>(meshInfo.surfaces_values[iSurf]);
-          HandleUID handle = surf.material;
-          assert(handle.isValid());
-          assert(gMapRemixApi.find(handle) != gMapRemixApi.cend());
-          surf.material = (remixapi_MaterialHandle)gMapRemixApi[handle];
+          MaterialHandle matHandle(surf.material);
+          surf.material = matHandle;
         }
 
-        HandleUID handle = remixapi::pullHandle();
-        assert(handle.isValid());
-        
-        remixapi_MeshHandle meshHandle = nullptr;
-        if(remixapi::g_remix.CreateMesh(&meshInfo, &meshHandle) == REMIXAPI_ERROR_CODE_SUCCESS) {
-          gMapRemixApi.emplace(handle, meshHandle);
+        auto bridgeHandle = DeviceBridge::get_data();
+        remixapi_MeshHandle remixApiHandle = nullptr;
+        if(remixapi::g_remix.CreateMesh(&meshInfo, &remixApiHandle) == REMIXAPI_ERROR_CODE_SUCCESS) {
+          MeshHandle handle(bridgeHandle, remixApiHandle);
         } else {
           Logger::err("[RemixApi_CreateMesh] Remix API call failed!");
         }
@@ -2899,13 +2890,10 @@ void ProcessDeviceCommandQueue() {
 
       case RemixApi_DestroyMesh:
       {
-        HandleUID handle = remixapi::pullHandle();
-        const bool bHandleIsValid =
-          handle.isValid() && gMapRemixApi.find(handle) != gMapRemixApi.cend();
-        assert(bHandleIsValid);
-        if(bHandleIsValid) {
+        MeshHandle handle(DeviceBridge::get_data());
+        if(handle.isValid()) {
           remixapi::g_remix.DestroyMesh(handle);
-          gMapRemixApi.erase(handle);
+          handle.invalidate();
         } else {
           Logger::err("[RemixApi_DestroyMesh] Invalid mesh handle!" );
         }
@@ -2929,15 +2917,11 @@ void ProcessDeviceCommandQueue() {
         serialize::InstanceInfo instInfo;
         deserializeFromQueue(instInfo);
         
-        HandleUID handle = instInfo.mesh;
-        const bool bHandleIsValid =
-          handle.isValid() && gMapRemixApi.find(handle) != gMapRemixApi.cend();
-        assert(bHandleIsValid);
-        if(bHandleIsValid) {
-          instInfo.mesh = (remixapi_MeshHandle)gMapRemixApi[handle];
+        MeshHandle meshHandle(instInfo.mesh);
+        if(meshHandle.isValid()) {
+          instInfo.mesh = meshHandle;
         } else {
           Logger::err("[RemixApi_DrawInstance] Invalid mesh handle!" );
-          break;
         }
 
         instInfo.pNext = nullptr;
@@ -3079,12 +3063,10 @@ void ProcessDeviceCommandQueue() {
           bLightExtExists = remixapi::pullBool();
         }
 
-        HandleUID handle = remixapi::pullHandle();
-        assert(handle.isValid());
-
+        auto bridgeHandle = DeviceBridge::get_data();
         remixapi_LightHandle lightHandle = nullptr;
         if(remixapi::g_remix.CreateLight(&lightInfo, &lightHandle) == REMIXAPI_ERROR_CODE_SUCCESS) {
-          gMapRemixApi.emplace(handle, lightHandle);
+          LightHandle handle(bridgeHandle, lightHandle);
         } else {
           Logger::err("[RemixApi_CreateLight] Remix API call failed!");
         }
@@ -3094,13 +3076,10 @@ void ProcessDeviceCommandQueue() {
 
       case RemixApi_DestroyLight:
       {
-        HandleUID handle = remixapi::pullHandle();
-        const bool bHandleIsValid =
-          handle.isValid() && gMapRemixApi.find(handle) != gMapRemixApi.cend();
-        assert(bHandleIsValid);
-        if(bHandleIsValid) {
+        LightHandle handle(DeviceBridge::get_data());
+        if(handle.isValid()) {
           remixapi::g_remix.DestroyLight(handle);
-          gMapRemixApi.erase(handle);
+          handle.invalidate();
         } else {
           Logger::err("[RemixApi_DestroyLight] Invalid light handle!" );
         }
@@ -3109,13 +3088,9 @@ void ProcessDeviceCommandQueue() {
 
       case RemixApi_DrawLightInstance:
       {
-        HandleUID handle = remixapi::pullHandle();
-        const bool bHandleIsValid =
-          handle.isValid() && gMapRemixApi.find(handle) != gMapRemixApi.cend();
-        assert(bHandleIsValid);
-        if(bHandleIsValid) {
-          auto lightHandle = (remixapi_LightHandle)gMapRemixApi[handle];
-          remixapi::g_remix.DrawLightInstance(lightHandle);
+        LightHandle handle(DeviceBridge::get_data());
+        if(handle.isValid()) {
+          remixapi::g_remix.DrawLightInstance(handle);
         } else {
           Logger::err("[RemixApi_DrawLightInstance] Invalid light handle!" );
         }

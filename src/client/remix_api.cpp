@@ -57,8 +57,8 @@ inline void send(ClientMessage& msg, const char* const& c_str) {
   msg.send_data((uint32_t) strlen(c_str) + 1, c_str);
 }
 
-template<>
-inline void send(ClientMessage& msg, const HandleUID& handle) {
+template<typename RemixApiHandleT>
+inline void sendHandle(ClientMessage& msg, const Handle<RemixApiHandleT>& handle) {
   msg.send_data(handle.uid);
 }
 
@@ -88,7 +88,7 @@ remixapi_ErrorCode REMIXAPI_CALL remixapi_CreateMaterial(
   ASSERT_REMIXAPI_PFN_TYPE(remixapi_CreateMaterial);
   assert(info->sType == REMIXAPI_STRUCT_TYPE_MATERIAL_INFO);
 
-  HandleUID newHandle;
+  MaterialHandle newHandle;
   {
     ClientMessage c(Commands::RemixApi_CreateMaterial);
 
@@ -140,7 +140,7 @@ remixapi_ErrorCode REMIXAPI_CALL remixapi_CreateMaterial(
       infoItr = pNext;
     }
     send(c, Bool::False);
-    send(c, newHandle);
+    sendHandle(c, newHandle);
   }
 
   *out_handle = newHandle;
@@ -148,15 +148,15 @@ remixapi_ErrorCode REMIXAPI_CALL remixapi_CreateMaterial(
   return REMIXAPI_ERROR_CODE_SUCCESS;
 }
 
-remixapi_ErrorCode REMIXAPI_CALL remixapi_DestroyMaterial(remixapi_MaterialHandle _handle) {
+remixapi_ErrorCode REMIXAPI_CALL remixapi_DestroyMaterial(remixapi_MaterialHandle handle) {
   ASSERT_REMIXAPI_PFN_TYPE(remixapi_DestroyMaterial);
-  HandleUID handle(_handle);
-  if(!handle.isValid()) {
+  MaterialHandle materialHandle(handle);
+  if(!materialHandle.isValid()) {
     return REMIXAPI_ERROR_CODE_INVALID_ARGUMENTS;
   }
   {
     ClientMessage c(Commands::RemixApi_DestroyMaterial);
-    send(c, handle);
+    sendHandle(c, materialHandle);
   }
   return REMIXAPI_ERROR_CODE_SUCCESS;
 }
@@ -168,7 +168,7 @@ remixapi_ErrorCode REMIXAPI_CALL remixapi_CreateMesh(
   ASSERT_REMIXAPI_PFN_TYPE(remixapi_CreateMesh);
   assert(info->sType == REMIXAPI_STRUCT_TYPE_MESH_INFO);
 
-  HandleUID newHandle;
+  MeshHandle newHandle;
   {
     ClientMessage c(Commands::RemixApi_CreateMesh);
     
@@ -184,7 +184,7 @@ remixapi_ErrorCode REMIXAPI_CALL remixapi_CreateMesh(
         }
       }
     }
-    send(c, newHandle);
+    sendHandle(c, newHandle);
   }
   
   *out_handle = newHandle;
@@ -192,15 +192,15 @@ remixapi_ErrorCode REMIXAPI_CALL remixapi_CreateMesh(
   return REMIXAPI_ERROR_CODE_SUCCESS;
 }
 
-remixapi_ErrorCode REMIXAPI_CALL remixapi_DestroyMesh(remixapi_MeshHandle _handle) {
+remixapi_ErrorCode REMIXAPI_CALL remixapi_DestroyMesh(remixapi_MeshHandle handle) {
   ASSERT_REMIXAPI_PFN_TYPE(remixapi_DestroyMesh);
-  HandleUID handle(_handle);
-  if(!handle.isValid()) {
+  MeshHandle meshHandle(handle);
+  if(!meshHandle.isValid()) {
     return REMIXAPI_ERROR_CODE_INVALID_ARGUMENTS;
   }
   {
     ClientMessage c(Commands::RemixApi_DestroyMesh);
-    send(c, handle);
+    sendHandle(c, meshHandle);
   }
   return REMIXAPI_ERROR_CODE_SUCCESS;
 }
@@ -261,7 +261,7 @@ remixapi_ErrorCode REMIXAPI_CALL remixapi_CreateLight(
   ASSERT_REMIXAPI_PFN_TYPE(remixapi_CreateLight);
   assert(info->sType == REMIXAPI_STRUCT_TYPE_LIGHT_INFO);
 
-  HandleUID newHandle;
+  LightHandle newHandle;
   {
     ClientMessage c(Commands::RemixApi_CreateLight);
 
@@ -333,7 +333,7 @@ remixapi_ErrorCode REMIXAPI_CALL remixapi_CreateLight(
       }
     }
     send(c, Bool::False);
-    send(c, newHandle);
+    sendHandle(c, newHandle);
   }
 
   *out_handle = newHandle;
@@ -341,28 +341,28 @@ remixapi_ErrorCode REMIXAPI_CALL remixapi_CreateLight(
   return REMIXAPI_ERROR_CODE_SUCCESS;
 }
 
-remixapi_ErrorCode REMIXAPI_CALL remixapi_DestroyLight(remixapi_LightHandle _handle) {
+remixapi_ErrorCode REMIXAPI_CALL remixapi_DestroyLight(remixapi_LightHandle handle) {
   ASSERT_REMIXAPI_PFN_TYPE(remixapi_DestroyLight);
-  HandleUID handle(_handle);
-  if(!handle.isValid()) {
+  LightHandle lightHandle(handle);
+  if(!lightHandle.isValid()) {
     return REMIXAPI_ERROR_CODE_INVALID_ARGUMENTS;
   }
   {
     ClientMessage c(Commands::RemixApi_DestroyLight);
-    send(c, handle);
+    sendHandle(c, lightHandle);
   }
   return REMIXAPI_ERROR_CODE_SUCCESS;
 }
 
-remixapi_ErrorCode REMIXAPI_CALL remixapi_DrawLightInstance(remixapi_LightHandle _lightHandle) {
+remixapi_ErrorCode REMIXAPI_CALL remixapi_DrawLightInstance(remixapi_LightHandle handle) {
   ASSERT_REMIXAPI_PFN_TYPE(remixapi_DrawLightInstance);
-  HandleUID handle(_lightHandle);
-  if(!handle.isValid()) {
+  LightHandle lightHandle(handle);
+  if(!lightHandle.isValid()) {
     return REMIXAPI_ERROR_CODE_INVALID_ARGUMENTS;
   }
   {
     ClientMessage c(Commands::RemixApi_DrawLightInstance);
-    send(c, handle);
+    sendHandle(c, lightHandle);
   }
   return REMIXAPI_ERROR_CODE_SUCCESS;
 }

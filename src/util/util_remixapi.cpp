@@ -30,6 +30,16 @@
 
 using namespace remixapi::util::serialize;
 
+namespace remixapi {
+namespace util {
+#ifdef REMIX_BRIDGE_SERVER
+MaterialHandle::HandleMapT MaterialHandle::s_handleMap;
+MeshHandle::HandleMapT MeshHandle::s_handleMap;
+LightHandle::HandleMapT LightHandle::s_handleMap;
+#endif
+}
+}
+
 namespace {
 
 // Convenience function templates to help with the boilerplate necessary

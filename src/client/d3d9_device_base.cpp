@@ -56,6 +56,9 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   memset(&m_state.viewport, 0, sizeof(m_state.viewport));
   m_state.viewport.Width = m_presParams.BackBufferWidth;
   m_state.viewport.Height = m_presParams.BackBufferHeight;
+  memset(&m_state.scissorRect, 0, sizeof(m_state.scissorRect));
+  m_state.scissorRect.right = m_presParams.BackBufferWidth;
+  m_state.scissorRect.bottom = m_presParams.BackBufferHeight;
   m_state.viewport.MaxZ = 1.f;
 
   // Games may override client's exception handler when it was setup early.

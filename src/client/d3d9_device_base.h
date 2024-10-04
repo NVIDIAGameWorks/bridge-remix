@@ -183,8 +183,8 @@ protected:
 
   D3DGAMMARAMP m_gammaRamp;
   D3DPRESENT_PARAMETERS m_previousPresentParams;
-  std::unordered_map<UINT, PALETTEENTRY> m_palleteEntries;
-  UINT m_curTexPallete;
+  std::unordered_map<UINT, PALETTEENTRY> m_paletteEntries;
+  UINT m_curTexPalette;
   BOOL m_bSoftwareVtxProcessing;
   D3DCLIPSTATUS9 m_clipStatus;
   float m_NPatchMode;
@@ -203,6 +203,7 @@ protected:
     std::array<std::array<bool, kMaxStageSamplerStateTypes>, kNumStageSamplers> samplerStates;
     // Streams
     std::array<bool, caps::MaxStreams> streams;
+    std::array<bool, caps::MaxStreams> streamOffsetsAndStrides;
     std::array<bool, caps::MaxStreams> streamFreqs;
     // Textures
     std::array<bool, kNumStageSamplers> textures;

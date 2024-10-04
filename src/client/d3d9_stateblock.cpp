@@ -91,6 +91,10 @@ void Direct3DStateBlock9_LSS::StateTransfer(const BaseDirect3DDevice9Ex_LSS::Sta
   for (int i = 0; i < flags.streams.size(); i++) {
     if (flags.streams[i]) {
       dst.streams[i] = src.streams[i];
+    }
+  }
+  for (int i = 0; i < flags.streamOffsetsAndStrides.size(); i++) {
+    if (flags.streamOffsetsAndStrides[i]) {
       dst.streamOffsets[i] = src.streamOffsets[i];
       dst.streamStrides[i] = src.streamStrides[i];
     }
@@ -103,6 +107,7 @@ void Direct3DStateBlock9_LSS::StateTransfer(const BaseDirect3DDevice9Ex_LSS::Sta
   for (int i = 0; i < flags.textures.size(); i++) {
     if (flags.textures[i]) {
       dst.textures[i] = src.textures[i];
+      dst.textureTypes[i] = src.textureTypes[i];
     }
   }
   if (flags.vertexShader) {

@@ -1468,14 +1468,15 @@ template<bool EnableSync>
 HRESULT Direct3DDevice9Ex_LSS<EnableSync>::GetLightEnable(DWORD Index, BOOL* pEnable) {
   ZoneScoped;
   LogFunctionCall();
-
   if (pEnable == nullptr) {
     return D3DERR_INVALIDCALL;
   }
 
   {
     BRIDGE_DEVICE_LOCKGUARD();
-    *pEnable = m_state.bLightEnables[Index];
+    // This is the true value for light-enables found through experimentation
+    constexpr BOOL LightEnableTrue = 128;
+    *pEnable = m_state.bLightEnables[Index] ? LightEnableTrue : 0;
   }
   return S_OK;
 }
@@ -1757,6 +1758,7 @@ void Direct3DDevice9Ex_LSS<EnableSync>::StateBlockSetCaptureFlags(D3DSTATEBLOCKT
   if (Type == D3DSBT_ALL) {
     std::fill(std::begin(flags.textures), std::end(flags.textures), true);
     std::fill(std::begin(flags.streams), std::end(flags.streams), true);
+    std::fill(std::begin(flags.streamOffsetsAndStrides), std::end(flags.streamOffsetsAndStrides), true);
 
     flags.indices = true;
     flags.viewport = true;
@@ -2200,7 +2202,7 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetPaletteEntries(UINT PaletteNumber,
 
   {
     BRIDGE_DEVICE_LOCKGUARD();
-    m_palleteEntries[PaletteNumber] = *pEntries;
+    m_paletteEntries[PaletteNumber] = *pEntries;
   }
   return S_OK;
 }
@@ -2216,7 +2218,7 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::GetPaletteEntries(UINT PaletteNumber,
 
   {
     BRIDGE_DEVICE_LOCKGUARD();
-    *pEntries = m_palleteEntries[PaletteNumber];
+    *pEntries = m_paletteEntries[PaletteNumber];
   }
   return S_OK;
 }
@@ -2227,7 +2229,7 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetCurrentTexturePalette(UINT Palette
   LogFunctionCall();
   {
     BRIDGE_DEVICE_LOCKGUARD();
-    m_curTexPallete = PaletteNumber;
+    m_curTexPalette = PaletteNumber;
   }
   return S_OK;
 }
@@ -2243,7 +2245,7 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::GetCurrentTexturePalette(UINT* pPalet
 
   {
     BRIDGE_DEVICE_LOCKGUARD();
-    *pPaletteNumber = m_curTexPallete;
+    *pPaletteNumber = m_curTexPalette;
   }
   return S_OK;
 }
@@ -2807,13 +2809,18 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetStreamSource(UINT StreamNumber, ID
       BRIDGE_DEVICE_LOCKGUARD();
       if (m_stateRecording) {
         m_stateRecording->m_captureState.streams[StreamNumber] = MakeD3DAutoPtr(pLssStreamData);
-        m_stateRecording->m_captureState.streamOffsets[StreamNumber] = OffsetInBytes;
-        m_stateRecording->m_captureState.streamStrides[StreamNumber] = Stride;
+        if (pStreamData != nullptr) {
+          m_stateRecording->m_captureState.streamOffsets[StreamNumber] = OffsetInBytes;
+          m_stateRecording->m_captureState.streamStrides[StreamNumber] = Stride;
+          m_stateRecording->m_dirtyFlags.streamOffsetsAndStrides[StreamNumber] = true;
+        }
         m_stateRecording->m_dirtyFlags.streams[StreamNumber] = true;
       } else {
         m_state.streams[StreamNumber] = MakeD3DAutoPtr(pLssStreamData);
-        m_state.streamOffsets[StreamNumber] = OffsetInBytes;
-        m_state.streamStrides[StreamNumber] = Stride;
+        if (pStreamData != nullptr) {
+          m_state.streamOffsets[StreamNumber] = OffsetInBytes;
+          m_state.streamStrides[StreamNumber] = Stride;
+        }
       }
     }
     {
@@ -3750,6 +3757,10 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::ResetState() {
   for (uint32_t i = 0; i < caps::MaxStreams; ++i) {
     m_state.streamFreqs[i] = 1;
   }
+
+  // Set The Current Texture Palette entry to it's default
+  // found through experimentation.
+  m_curTexPalette = 65535;
 
   return S_OK;
 }

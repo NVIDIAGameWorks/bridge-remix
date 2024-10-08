@@ -30,7 +30,7 @@ namespace logger_strings {
   constexpr char* MultipleActiveCommands = "Multiple active Command instances detected!";
   constexpr char* RtxRemixRuntimeError = "RTX Remix Runtime Error!";
   constexpr char* BridgeClientClosing = "The RTX Remix Runtime has encountered an unexpected issue. The application will close.\n\nPlease collect any *.log or *.dmp files next to the application or in the .trex folder, and report the error at https://github.com/NVIDIAGameWorks/rtx-remix/issues.";
-
+  constexpr char* WndProcExcessiveRecCall = "Detected excessive recursive calls to RemixWndProc - msg: ";
   inline static const std::map<const std::string, const std::string> bufferNameToOptionMap =
   {
     {"ModuleClient2ServerData", "moduleClientChannelMemSize"},

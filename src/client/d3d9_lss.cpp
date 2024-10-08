@@ -123,7 +123,7 @@ SceneState gSceneState = WaitBeginScene;
 std::chrono::steady_clock::time_point gTimeStart;
 bool gbBridgeRunning = true;
 std::string gRemixFolder = "";
-thread_local int gRemixWndProcEntryExitCount = 0;
+thread_local std::unordered_map<UINT, int>  gRemixWndProcEntryExitCountMap;
 
 void PrintRecentCommandHistory() {
   // Log history of recent client side commands sent and received by the server
@@ -468,35 +468,11 @@ LRESULT WINAPI RemixWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
   const bool isUnicode = IsWindowUnicode(hWnd);
 
   LRESULT lresult = 0;
-  gRemixWndProcEntryExitCount += 1;
-  int curEntryExitCount = gRemixWndProcEntryExitCount;
-  // Detecting recursive calls
-  if (curEntryExitCount > 1) {
-    int wndProcListLen = 0;
-    {
-      std::scoped_lock lock(gWndProcListMapMutex);
-      if(ogWndProcList.find(hWnd) != ogWndProcList.end())
-        wndProcListLen = ogWndProcList[hWnd].size();
-    }
-    int curWndProcIndex = curEntryExitCount-1;
-    if (curWndProcIndex >= wndProcListLen) {
-      gRemixWndProcEntryExitCount = 0;
-      lresult = !isUnicode ?
-        DefWindowProcA(hWnd, msg, wParam, lParam) :
-        DefWindowProcW(hWnd, msg, wParam, lParam);
-    }
-    else {
-      WNDPROC prevWndProc;
-      {
-        std::scoped_lock lock(gWndProcListMapMutex);
-        prevWndProc = ogWndProcList[hWnd][curWndProcIndex];
-      }
-      lresult = !isUnicode ?
-        CallWindowProcA(prevWndProc, hWnd, msg, wParam, lParam) :
-        CallWindowProcW(prevWndProc, hWnd, msg, wParam, lParam);
-    }
-  }
-  else {
+  gRemixWndProcEntryExitCountMap[msg] += 1;
+  int curEntryExitCount = gRemixWndProcEntryExitCountMap[msg];
+
+  if  (curEntryExitCount == 1)
+  {
     if (msg == WM_ACTIVATEAPP || msg == WM_SIZE || msg == WM_DESTROY) {
       gSwapChainMapMutex.lock();
       if (gSwapChainMap.find(hWnd) != gSwapChainMap.end()) {
@@ -549,7 +525,34 @@ LRESULT WINAPI RemixWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         CallWindowProcW(prevWndProc, hWnd, msg, wParam, lParam);
     }
   }
-  gRemixWndProcEntryExitCount -= 1;
+  else  {
+    int wndProcListLen = 0;
+    {
+      std::scoped_lock lock(gWndProcListMapMutex);
+      if(ogWndProcList.find(hWnd) != ogWndProcList.end())
+        wndProcListLen = ogWndProcList[hWnd].size();
+    }
+    int curWndProcIndex = curEntryExitCount-1;
+    if (curWndProcIndex >= wndProcListLen) {
+      Logger::warn(logger_strings::WndProcExcessiveRecCall +  std::to_string(msg) + " wParam: " + std::to_string(wParam));
+      lresult = !isUnicode ?
+        DefWindowProcA(hWnd, msg, wParam, lParam) :
+        DefWindowProcW(hWnd, msg, wParam, lParam);
+    }
+    else {
+      WNDPROC prevWndProc;
+      {
+        std::scoped_lock lock(gWndProcListMapMutex);
+        prevWndProc = ogWndProcList[hWnd][curWndProcIndex];
+      }
+      lresult = !isUnicode ?
+        CallWindowProcA(prevWndProc, hWnd, msg, wParam, lParam) :
+        CallWindowProcW(prevWndProc, hWnd, msg, wParam, lParam);
+    }
+  }
+
+  gRemixWndProcEntryExitCountMap[msg] -= 1;
+
   return lresult;
 }
 

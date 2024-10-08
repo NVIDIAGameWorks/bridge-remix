@@ -198,15 +198,6 @@ HRESULT Direct3DSwapChain9_LSS::Present(CONST RECT* pSourceRect, CONST RECT* pDe
     c.send_data(dwFlags);
   }
 
-  // Seeing this in the log could indicate the game is sending inputs to a different window
-  extern std::unordered_map<HWND, std::deque<WNDPROC>> ogWndProcList;
-  extern std::mutex gWndProcListMapMutex;
-  if (hDestWindowOverride != NULL) {
-    std::scoped_lock lock(gWndProcListMapMutex);
-    if (ogWndProcList.find(hDestWindowOverride) == ogWndProcList.end())
-      ONCE(Logger::info("Detected unhooked winproc on Direct3DSwapChain9::Present"));
-  }
-
   extern HRESULT syncOnPresent();
   const auto syncResult = syncOnPresent();
   if (syncResult == ERROR_SEM_TIMEOUT) {

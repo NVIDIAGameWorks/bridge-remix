@@ -30,7 +30,7 @@
 
 #include "log/log.h"
 #include "util_bytes.h"
-#include "util_filesys.h"
+#include "util_process.h"
 
 #include <fstream>
 #include <sstream>
@@ -159,12 +159,12 @@ namespace bridge_util {
   Config Config::getAppDefaultConfig(const char* exeFilePathIn) {
     Config config;
 
-    auto exeFilePath = (exeFilePathIn == nullptr) ? getModuleFileName() : exeFilePathIn; // No HMODULE parameter; We want the parent app, not dll
+    auto exeFilePath = (exeFilePathIn == nullptr) ? getModuleFilePath() : exeFilePathIn; // No HMODULE parameter; We want the parent app, not dll
 
     auto pFoundAppDefaultConfig = std::find_if(appDefaultConfigs.begin(), appDefaultConfigs.end(),
       [&exeFilePath](const AppDefaultConfig& appDefaultConfig) {
         std::regex expr(appDefaultConfig.regex, std::regex::extended | std::regex::icase);
-        return std::regex_search(exeFilePath, expr);
+        return std::regex_search(exeFilePath.string(), expr);
       });
 
     if (pFoundAppDefaultConfig != appDefaultConfigs.end()) {
@@ -175,7 +175,7 @@ namespace bridge_util {
       return appDefaultConfig;
     }
 
-    Logger::info(std::string("No default config found for: ") + exeFilePath);
+    Logger::info(std::string("No default config found for: ") + exeFilePath.string());
     return Config();
   }
 
@@ -184,13 +184,13 @@ namespace bridge_util {
     Config config;
 
     const HMODULE _hModuleConfigOwner = reinterpret_cast<HMODULE>(hModuleConfigOwner);
-    auto moduleFilePath = getModuleFileName(_hModuleConfigOwner);
-    const size_t finalDirPos = moduleFilePath.find_last_of('\\');
+    auto moduleFilePath = getModuleFilePath(_hModuleConfigOwner);
+    const size_t finalDirPos = moduleFilePath.string().find_last_of('\\');
     if (finalDirPos == std::string::npos) {
       Logger::err("Error resolving module path for config setup.");
       return config;
     }
-    const std::string moduleDir = moduleFilePath.substr(0, finalDirPos + 1);
+    const std::string moduleDir = moduleFilePath.string().substr(0, finalDirPos + 1);
     const std::string trexDirPath = (app == App::Client) ? moduleDir + ".trex\\" : moduleDir;
     const std::string userConfPath = trexDirPath + "bridge.conf";
 

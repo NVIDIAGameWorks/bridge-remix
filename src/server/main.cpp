@@ -35,6 +35,7 @@
 #include "util_hack_d3d_debug.h"
 #include "util_messagechannel.h"
 #include "util_modulecommand.h"
+#include "util_process.h"
 #include "util_remixapi.h"
 #include "util_seh.h"
 #include "util_semaphore.h"
@@ -3270,6 +3271,11 @@ bool InitializeD3D() {
                                 version::messageChannelV, dxvkVersions[version::MessageChannel]));
       bMismatchDetected = true;
     }
+    if(version::fileSysV != dxvkVersions[version::FileSys]) {
+      Logger::err(format_string("FileSys version mismatch! Bridge: 0x%X, DXVK: 0x%X\n",
+                                version::fileSysV, dxvkVersions[version::FileSys]));
+      bMismatchDetected = true;
+    }
     if(bMismatchDetected) {
       Logger::warn("One or more functional version mismatches detected. If you experience problems, consider updating either bridge or dxvk.");
     } else {
@@ -3351,13 +3357,34 @@ static bool RegisterMessageChannel() {
   return true;
 }
 
+static inline bool initFileSys() {
+  auto parentPid = bridge_util::getParentPid();
+  DWORD accessRights = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
+  HANDLE processHandle = OpenProcess(accessRights, FALSE, parentPid);
+  {
+    auto executable32PathVec = createPathVec();
+    if(GetModuleFileNameEx(processHandle, NULL, executable32PathVec.data(), executable32PathVec.size()) == 0) {
+      Logger::err("Failed to find executable path!");
+      return false;
+    }
+    const fspath executable32Path(executable32PathVec.data());
+    const auto exe32Dir = executable32Path.parent_path();
+    dxvk::util::RtxFileSys::init(exe32Dir.string());
+  }
+  return true;
+}
+
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ PWSTR pCmdLine, _In_ int nCmdShow) {
   gTimeStart = std::chrono::high_resolution_clock::now();
+  
+  if (!initFileSys()) {
+    Logger::err("Failed to initialize rtx filesystem!");
+    return 1;
+  }
 
-  Logger::init(LogLevel::Info);
   Config::init(Config::App::Server);
   GlobalOptions::init();
-  Logger::set_loglevel(GlobalOptions::getLogLevel());
+  Logger::init();
 
   // Always setup exception handler on server
   ExceptionHandler::get().init();

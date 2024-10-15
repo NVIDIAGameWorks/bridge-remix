@@ -22,21 +22,13 @@ REM DEALINGS IN THE SOFTWARE.
 REM
 
 powershell -command "& { . .\build_bridge.ps1; Build -Platform x64 -BuildFlavour debug -BuildSubDir _compDebug_x64 ; exit $LastExitCode }
-IF NOT %ERRORLEVEL% == 0 GOTO :End
 
 powershell -command "& { . .\build_bridge.ps1; Build -Platform x64 -BuildFlavour debugoptimized -BuildSubDir _compDebugOptimized_x64 ; exit $LastExitCode }
-IF NOT %ERRORLEVEL% == 0 GOTO :End
 
 powershell -command "& { . .\build_bridge.ps1; Build -Platform x64 -BuildFlavour release -BuildSubDir _compRelease_x64 ; exit $LastExitCode }
-IF NOT %ERRORLEVEL% == 0 GOTO :End
 
 powershell -command "& { . .\build_bridge.ps1; Build -Platform x86 -BuildFlavour debug -BuildSubDir _compDebug_x86 ; exit $LastExitCode }
-IF NOT %ERRORLEVEL% == 0 GOTO :End
 
 powershell -command "& { . .\build_bridge.ps1; Build -Platform x86 -BuildFlavour debugoptimized -BuildSubDir _compDebugOptimized_x86 ; exit $LastExitCode }
-IF NOT %ERRORLEVEL% == 0 GOTO :End
 
 powershell -command "& { . .\build_bridge.ps1; Build -Platform x86 -BuildFlavour release -BuildSubDir _compRelease_x86 ; exit $LastExitCode }
-
-:End
-exit %ERRORLEVEL%

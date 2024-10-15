@@ -23,8 +23,7 @@
 detours_include_path = include_directories('../../ext/Detours/src')
 
 launcher_src = files([
-  'launcher.cpp',
-  '../util/log/log.cpp'
+  'launcher.cpp'
 ])
 
 lib_shlwapi = bridge_compiler.find_library('shlwapi')
@@ -37,7 +36,7 @@ endif
 
 launcher_exe = executable(launcher_name, launcher_src,
 build_by_default    : (cpu_family == 'x86') ? true : false,
-dependencies        : [ lib_shlwapi ],
+dependencies        : [ lib_shlwapi, util_dep ],
 include_directories : [ detours_include_path, util_include_path ])
 
 

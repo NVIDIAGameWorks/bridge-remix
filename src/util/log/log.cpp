@@ -22,16 +22,21 @@
 #include "log.h"
 #include "log_strings.h"
 
+#include "../config/global_options.h"
 #include "util_filesys.h"
+#include "util_process.h"
 
 #include <array>
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <assert.h>
 
 #ifndef _WIN32
 #include <sys/time.h>
 #endif
+
+using namespace dxvk::util;
 
 namespace bridge_util {
   template<int N>
@@ -56,54 +61,54 @@ namespace bridge_util {
 #endif
   }
 
-  inline static Logger* logger = nullptr;
+  Logger* Logger::logger = nullptr;
+  Logger::PreInitMessageArr Logger::s_preInitMsgs;
+  std::mutex Logger::s_mutex;
 
-  void Logger::init(const LogLevel logLevel, void* hModuleLogOwner) {
-    logger = nullptr;
-    get(logLevel, hModuleLogOwner);
+  void Logger::init() {
+    assert(logger == nullptr && "Logger already init!");
+    if (logger == nullptr) {
+      logger = new Logger(GlobalOptions::getLogLevel());
+      emitPreInitMsgs();
+    }
   }
 
-  Logger& Logger::get(const LogLevel logLevel, void* hModuleLogOwner) {
-    if (logger == nullptr) {
-      logger = new Logger(logLevel, hModuleLogOwner);
-    }
+  Logger& Logger::get() {
     return *logger;
   }
 
-  Logger::Logger(const LogLevel log_level, void* hModuleLogOwner)
-    : m_level(log_level) {
+  Logger::Logger(const LogLevel log_level) : m_level(log_level) {
     if (m_level != LogLevel::None) {
-      const HMODULE _hModuleLogOwner = reinterpret_cast<HMODULE>(hModuleLogOwner);
-      auto moduleFilePath = getModuleFileName(_hModuleLogOwner);
-      const size_t dotExePos = moduleFilePath.find_last_of('.');
-      std::string logNameStr = (dotExePos != std::string::npos) ? moduleFilePath.substr(0, dotExePos) : "out";
-#ifdef _WIN32
-      char logPath[MAX_PATH];
-      sprintf_s(logPath, "%s.log", logNameStr.c_str());
 
+#ifdef REMIX_BRIDGE_CLIENT
+      std::string logName = "bridge32.log";
+#else
+      std::string logName = "bridge64.log";
+#endif
+      auto logPath = RtxFileSys::path(RtxFileSys::Logs);
+      logPath /= logName;
+#ifdef REMIX_BRIDGE_CLIENT
       uint32_t attempt = 0;
       while (attempt < 4) {
-        m_hFile = CreateFileA(logPath, GENERIC_WRITE, FILE_SHARE_READ, NULL,
+        m_hFile = CreateFileA(logPath.string().c_str(), GENERIC_WRITE, FILE_SHARE_READ, NULL,
                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL |
                             FILE_FLAG_WRITE_THROUGH, NULL);
         if (m_hFile != INVALID_HANDLE_VALUE) {
           break;
         }
-
         // Dump Win32 errors to debug output in DEBUG mode
         emitMsg(LogLevel::Error, format_string("Log CreateFile() failed with %d", GetLastError()));
 
         attempt++;
-        sprintf_s(logPath, "%s_%02d.log", logNameStr.c_str(), attempt);
       }
 #else
-      m_fileStream = std::ofstream(logPathStr.c_str());
+      m_fileStream = std::ofstream(logPath);
 #endif
     }
   }
 
   Logger::~Logger() {
-#ifdef _WIN32
+#ifdef REMIX_BRIDGE_CLIENT
     CloseHandle(m_hFile);
 #else
     if (m_fileStream.is_open()) {
@@ -112,24 +117,35 @@ namespace bridge_util {
 #endif
   }
 
+  void Logger::emitPreInitMsgs() {
+    debug("[Pre-Init Message] Emitting...");
+    for(size_t logLevel = (size_t)LogLevel::Trace;
+               logLevel < (size_t)LogLevel::None; logLevel++) {
+      auto& preInitSS = s_preInitMsgs[logLevel];
+      emitMsg((LogLevel)logLevel, preInitSS.str());
+      preInitSS.clear();
+    }
+    debug("[Pre-Init Message] Done!");
+  }
+
   void Logger::trace(const std::string& message) {
-    get().emitMsg(LogLevel::Trace, message);
+    emitMsg(LogLevel::Trace, message);
   }
 
   void Logger::debug(const std::string& message) {
-    get().emitMsg(LogLevel::Debug, message);
+    emitMsg(LogLevel::Debug, message);
   }
 
   void Logger::info(const std::string& message) {
-    get().emitMsg(LogLevel::Info, message);
+    emitMsg(LogLevel::Info, message);
   }
 
   void Logger::warn(const std::string& message) {
-    get().emitMsg(LogLevel::Warn, message);
+    emitMsg(LogLevel::Warn, message);
   }
 
   void Logger::err(const std::string& message) {
-    get().emitMsg(LogLevel::Error, message);
+    emitMsg(LogLevel::Error, message);
   }
 
   void Logger::errLogMessageBoxAndExit(const std::string& message) {
@@ -139,7 +155,7 @@ namespace bridge_util {
   }
 
   void Logger::log(const LogLevel level, const std::string& message) {
-    get().emitMsg(level, message);
+    emitMsg(level, message);
   }
 
   void Logger::logLine(const LogLevel level, const char* line) {
@@ -147,51 +163,56 @@ namespace bridge_util {
   }
 
   void Logger::emitMsg(const LogLevel level, const std::string& message) {
-    if (level >= m_level) {
-      std::lock_guard<std::mutex> lock(m_mutex);
-
-      std::stringstream stream(message);
-      std::string       line;
-
-      while (std::getline(stream, line, '\n')) {
-        emitLine(level, line.c_str());
+    if(!logger) {
+      auto ss = formatMessage(level, message);
+      std::scoped_lock lock(s_mutex);
+      s_preInitMsgs[(size_t)level] << ss.str();
+    } else {
+      auto ss = formatMessage(level, message);
+      std::scoped_lock lock(s_mutex);
+      std::string line;
+      while (std::getline(ss, line, '\n')) {
+        logger->emitLine(level, line);
       }
     }
   }
 
-  void Logger::emitLine(const LogLevel level, const char* line) {
-    static std::array<const char*, 5> s_prefixes
-      = { { "trace: ", "debug: ", "info:  ", "warn:  ", "err:   " } };
-
+  void Logger::emitLine(const LogLevel level, const std::string& line) {
+    if (level >= m_level) {
+#ifdef REMIX_BRIDGE_CLIENT
+      static char c_line[4096];
+      int len = sprintf_s(c_line, "%s\n", line.c_str());
+#ifdef _DEBUG
+      OutputDebugStringA(c_line);
+#endif
+      if (m_hFile != INVALID_HANDLE_VALUE) {
+        WriteFile(m_hFile, c_line, len, NULL, NULL);
+      }
+#else
+      if (m_fileStream.is_open()) {
+        m_fileStream << line << std::endl;
+      }
+#endif
+    }
+  }
+  
+  std::stringstream Logger::formatMessage(const LogLevel level, const std::string& message) {
+    std::stringstream unformattedStream(message);
+    std::string       line;
+    static std::array<const char*, 5> s_prefixes = { { "trace: ",
+                                                        "debug: ",
+                                                        "info:  ",
+                                                        "warn:  ",
+                                                        "err:   " } };
     const char* prefix = s_prefixes.at(static_cast<uint32_t>(level));
-
     char timeString[64];
     getLocalTimeString(timeString);
 
-    static char tmpSpace[4096];
-    int len = sprintf_s(tmpSpace, "%s %s%s\n", timeString, prefix, line);
-
-    if (len <= 0) {
-      return;
+    std::stringstream formattedStream;
+    while (std::getline(unformattedStream, line, '\n')) {
+      formattedStream << timeString << " " << prefix << line << "\n";
     }
-
-#ifdef _WIN32
-
-#ifdef _DEBUG
-    OutputDebugStringA(tmpSpace);
-#endif
-
-    if (m_hFile != INVALID_HANDLE_VALUE) {
-      WriteFile(m_hFile, tmpSpace, len, NULL, NULL);
-    }
-
-#else
-
-    if (m_fileStream.is_open()) {
-      m_fileStream << prefix << line;
-    }
-
-#endif
+    return std::move(formattedStream);
   }
 
   void Logger::set_loglevel(const LogLevel level) {

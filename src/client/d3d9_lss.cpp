@@ -35,6 +35,7 @@
 #include "di_hook.h"
 #include "log/log.h"
 #include "remix_state.h"
+
 #include "util_bridge_assert.h"
 #include "util_bridge_state.h"
 #include "util_common.h"
@@ -305,6 +306,23 @@ bool InitRemixFolder(HMODULE hinst) {
 
   gRemixFolder = tmp;
 
+  return true;
+}
+
+bool initFileSys(const HMODULE hModule) {
+  const auto hModulePath = getModuleFilePath(hModule);
+  bool bNeedToFindExecutable = hModulePath.extension().compare(".exe") != 0;
+  fspath executablePath = "";
+  if (bNeedToFindExecutable) {
+    auto executablePathVec = createPathVec();
+    if(GetModuleFileName(NULL,executablePathVec.data(), executablePathVec.size()) == 0) {
+      Logger::err("Failed to find executable path!");
+      return false;
+    }
+    executablePath = fspath(executablePathVec.data());
+  }
+  const auto exeDir = executablePath.parent_path();
+  dxvk::util::RtxFileSys::init(exeDir.string());
   return true;
 }
 
@@ -597,12 +615,26 @@ void removeWinProc(const HWND hwnd) {
 
 bool RemixAttach(HMODULE hModule) {
   if (!gIsAttached) {
-    hModule = hModule != NULL ? hModule : GetModuleHandle(nullptr);
+    // Sort out module/library handles
+    if(!hModule) {
+      const DWORD getHandleFlags = GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT;
+      if (!GetModuleHandleEx(getHandleFlags, NULL, &hModule)) {
+        Logger::err("Unable to find module handle...");
+        return false;
+      }
+    }
+    
+    // Initialize options
+    Config::init(Config::App::Client, hModule);
+    GlobalOptions::init();
 
-    // Initialize logger with level Info until we read the config file and
-    // know whether the level needs to be set to something else. That way
-    // we can still get log messages from the Config module itself.
-    Logger::init(LogLevel::Info, hModule);
+    // Find path of original executable to properly set up paths
+    if (!initFileSys(hModule)) {
+      Logger::err("Failed to initialize rtx filesystem!");
+    }
+
+    // Initialize logger
+    Logger::init();
 
     // Setup Remix folder first hand
     if (!InitRemixFolder(hModule)) {
@@ -610,16 +642,13 @@ bool RemixAttach(HMODULE hModule) {
       return false;
     }
 
-    Config::init(Config::App::Client, hModule);
-    GlobalOptions::init();
-    Logger::set_loglevel(GlobalOptions::getLogLevel());
 
     SetupExceptionHandler();
 
     // Identify yourself
     Logger::info("==================\nNVIDIA RTX Remix Bridge Client\n==================");
     Logger::info(std::string("Version: ") + std::string(BRIDGE_VERSION));
-    auto clientPath = getModuleFileName();
+    auto clientPath = getModuleFilePath();
     Logger::info(format_string("Loaded d3d9.dll from %s", clientPath.c_str()));
 
     DInputHookAttach();

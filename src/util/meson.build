@@ -22,6 +22,7 @@
 
 util_src = files([
 	'util_bridgecommand.cpp',
+	'util_filesys.cpp',
 	'util_gdi.cpp',
 	'util_messagechannel.cpp',
 	'util_process.cpp',

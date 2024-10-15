@@ -75,8 +75,7 @@ namespace ClientOptions {
   // and redundant copy will be avioded. However, because D3D applications are not obliged
   // to write the entire locked region this optimization is NOT considered safe and may
   // not always work.
-  static const bool optimizedDynamicLock = bridge_util::Config::getOption<bool>("client.optimizedDynamicLock", false);
   inline bool getOptimizedDynamicLock() {
-    return optimizedDynamicLock;
+    return bridge_util::Config::getOption<bool>("client.optimizedDynamicLock", false);
   }
 }

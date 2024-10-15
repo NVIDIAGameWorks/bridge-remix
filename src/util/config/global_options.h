@@ -320,13 +320,13 @@ private:
 
     // In a Debug or DebugOptimized build of the bridge, setting LogApiCalls
     // to True will write each call to a D3D9 API function through the bridge
-    // client to to the the client log file("d3d9.log").
+    // client to the the client log file("bridge32.log").
     logApiCalls = bridge_util::Config::getOption<bool>("logApiCalls", false);
 
     // Like logApiCalls, setting LogAllCalls to True while running a
     // Debug or Debugoptimized build of the bridge will write each call
     // to a D3D9 API function through the bridge client to to the the
-    // client log file("d3d9.log"), except both the entry and exit of
+    // client log file("bridge32.log"), except both the entry and exit of
     // the call will be logged.This includes clientside internal calls to
     // D3D9API functions.Additionally, each nested internal call to a
     // public D3D9 API function will be offset by an additional tab.
@@ -342,7 +342,7 @@ private:
 
     // In a Debug or DebugOptimized build of the bridge, setting LogServerCommands
     // or LogAllCommands to True will write each command sent to the server to the server 
-    // log file ("NvRemixBridge.log")
+    // log file ("bridge64.log")
 
     logServerCommands = bridge_util::Config::getOption<bool>("logServerCommands", false);
 
@@ -363,12 +363,13 @@ private:
     // operations to INFINITE, therefore ensuring that even during long periods of
     // inactivity these calls won't time out.
     infiniteRetries = bridge_util::Config::getOption<bool>("infiniteRetries", false);
-
+    
 #ifdef _DEBUG
-    const auto strLevel = bridge_util::Config::getOption<std::string>("logLevel", "Debug");
+    constexpr char kDefaultLogLevel[] = "Debug";
 #else
-    const auto strLevel = bridge_util::Config::getOption<std::string>("logLevel", "Info");
+    constexpr char kDefaultLogLevel[] = "Info";
 #endif
+    const auto strLevel = bridge_util::Config::getOption<std::string>("logLevel", kDefaultLogLevel);
     logLevel = bridge_util::str_to_loglevel(strLevel);
 
     // We use a simple circular buffer to track user input state in order to send

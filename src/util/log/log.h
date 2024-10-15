@@ -21,9 +21,13 @@
  */
 #pragma once
 
+#include "../util_common.h"
+
 #include <fstream>
 #include <mutex>
 #include <string>
+#include <sstream>
+#include <array>
 #include <unordered_map>
 
 namespace bridge_util {
@@ -34,7 +38,7 @@ namespace bridge_util {
     Info = 2,
     Warn = 3,
     Error = 4,
-    None = 5,
+    None = 5
   };
 
   /**
@@ -45,7 +49,7 @@ namespace bridge_util {
    */
   class Logger {
   public:
-    static void init(const LogLevel logLevel = LogLevel::None, void* hModuleLogOwner = NULL);
+    static void init();
 
     static void trace(const std::string& message);
     static void debug(const std::string& message);
@@ -60,24 +64,27 @@ namespace bridge_util {
     static void set_loglevel(const LogLevel level);
 
   private:
-    inline static Logger* logger = nullptr;
+    static Logger* logger;
+    using PreInitMessageArr = std::array<std::stringstream, (size_t)LogLevel::None>;
+    static PreInitMessageArr s_preInitMsgs;
+    static std::mutex s_mutex;
 
-    Logger(const LogLevel logLevel, void* hModuleLogOwner);
+    Logger(const LogLevel logLevel);
     ~Logger();
 
-    static Logger& get(const LogLevel logLevel = LogLevel::None, void* hModuleLogOwner = NULL);
+    static Logger& get();
+    
     LogLevel m_level;
 
-    std::mutex m_mutex;
-
-#ifdef _WIN32
+#ifdef REMIX_BRIDGE_CLIENT
     void* m_hFile;
 #else
     std::ofstream m_fileStream;
 #endif
-
-    void emitMsg(const LogLevel level, const std::string& message);
-    void emitLine(const LogLevel level, const char* line);
+    static void emitPreInitMsgs();
+    static void emitMsg(const LogLevel level, const std::string& message);
+    void emitLine(const LogLevel level, const std::string& line);
+    static std::stringstream formatMessage(const LogLevel level, const std::string& message);
   };
 
   static LogLevel str_to_loglevel(const std::string& strLogLevel) {

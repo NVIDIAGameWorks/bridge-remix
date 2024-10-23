@@ -54,7 +54,7 @@
 
 #define REMIXAPI_VERSION_MAJOR 0
 #define REMIXAPI_VERSION_MINOR 4
-#define REMIXAPI_VERSION_PATCH 1
+#define REMIXAPI_VERSION_PATCH 2
 
 
 // External
@@ -196,7 +196,7 @@ extern "C" {
     float               thinFilmThickness_value;
     remixapi_Bool       alphaIsThinFilmThickness;
     remixapi_Path       heightTexture;
-    float               heightTextureStrength;
+    float               displaceIn;
     // If true, InstanceInfoBlendEXT is used as a source for alpha state
     remixapi_Bool       useDrawCallAlphaState;
     remixapi_Bool       blendType_hasvalue;
@@ -204,6 +204,7 @@ extern "C" {
     remixapi_Bool       invertedBlend;
     int                 alphaTestType;
     uint8_t             alphaReferenceValue;
+    float               displaceOut;
   } remixapi_MaterialInfoOpaqueEXT;
 
   // Valid only if remixapi_MaterialInfo contains remixapi_MaterialInfoOpaqueEXT in pNext chain

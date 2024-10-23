@@ -221,13 +221,14 @@ void MaterialInfo::_dtor() {
                                thinFilmThickness_value, \
                                alphaIsThinFilmThickness, \
                                heightTexture, \
-                               heightTextureStrength, \
+                               displaceIn, \
                                useDrawCallAlphaState, \
                                blendType_hasvalue, \
                                blendType_value, \
                                invertedBlend, \
                                alphaTestType, \
-                               alphaReferenceValue
+                               alphaReferenceValue, \
+                               displaceOut
 uint32_t MaterialInfoOpaque::_calcSize() const {
   return fold_helper::calcSize(MaterialInfoOpaqueVars);
 }

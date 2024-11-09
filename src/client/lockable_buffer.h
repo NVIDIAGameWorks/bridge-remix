@@ -74,7 +74,7 @@ private:
   void initShadowMem() {
     m_shadow = std::make_unique<uint8_t[]>(m_desc.Size);
     g_totalBufferShadow += m_desc.Size;
-    Logger::debug(format_string("Allocated a shadow for dynamic %s buffer [%p] "
+    Logger::trace(format_string("Allocated a shadow for dynamic %s buffer [%p] "
                                 "(size: %zd, total shadow size: %zd)",
                                 bIsVertexBuffer ? "vertex" : "index",
                                 this, m_desc.Size, g_totalBufferShadow));
@@ -104,7 +104,7 @@ protected:
       }
     } else if (m_shadow) {
       g_totalBufferShadow -= m_desc.Size;
-      Logger::debug(format_string("Released shadow of dynamic %s buffer [%p] "
+      Logger::trace(format_string("Released shadow of dynamic %s buffer [%p] "
                                   "(size: %zd, total shadow size: %zd)",
                                   bIsVertexBuffer ? "vertex" : "index",
                                   this, m_desc.Size, g_totalBufferShadow));

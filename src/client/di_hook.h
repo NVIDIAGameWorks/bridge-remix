@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,34 +22,6 @@
 #pragma once
 
 #include <windows.h>
-
-inline static bool isInputMessage(uint32_t msg) {
-  switch (msg) {
-  case WM_KEYDOWN:
-  case WM_KEYUP:
-  case WM_SYSKEYDOWN:
-  case WM_SYSKEYUP:
-  case WM_SYSCHAR:
-  case WM_LBUTTONDOWN:
-  case WM_LBUTTONDBLCLK:
-  case WM_LBUTTONUP:
-  case WM_MBUTTONDOWN:
-  case WM_MBUTTONDBLCLK:
-  case WM_MBUTTONUP:
-  case WM_RBUTTONDOWN:
-  case WM_RBUTTONDBLCLK:
-  case WM_RBUTTONUP:
-  case WM_MOUSEWHEEL:
-  case WM_MOUSEMOVE:
-  case WM_CHAR:
-  case WM_UNICHAR:
-  case WM_MOUSELEAVE:
-  case WM_MOUSEHOVER:
-  case WM_INPUT:
-    return true;
-  }
-  return false;
-}
 
 extern void DInputHookAttach();
 extern void DInputHookDetach();

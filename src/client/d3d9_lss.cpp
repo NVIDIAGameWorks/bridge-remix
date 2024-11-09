@@ -35,6 +35,8 @@
 #include "di_hook.h"
 #include "log/log.h"
 #include "remix_state.h"
+#include "window.h"
+#include "message_channels.h"
 
 #include "util_bridge_assert.h"
 #include "util_bridge_state.h"
@@ -113,18 +115,13 @@ Process* gpServer = nullptr;
 NamedSemaphore* gpPresent = nullptr;
 ShadowMap gShadowMap;
 std::mutex gShadowMapMutex;
-SwapChainMap gSwapChainMap;
-std::mutex gSwapChainMapMutex;
-std::unordered_map<HWND, std::deque<WNDPROC>> ogWndProcList;
-std::mutex gWndProcListMapMutex;
-std::unique_ptr<MessageChannelClient> gpRemixMessageChannel;  // Message channel with the Remix renderer
-std::unique_ptr<MessageChannelClient> gpServerMessageChannel; // Message channel with the Bridge server
 std::mutex serverStartMutex;
 SceneState gSceneState = WaitBeginScene;
 std::chrono::steady_clock::time_point gTimeStart;
 bool gbBridgeRunning = true;
 std::string gRemixFolder = "";
-thread_local std::unordered_map<UINT, int>  gRemixWndProcEntryExitCountMap;
+std::mutex gSwapChainMapMutex;
+SwapChainMap gSwapChainMap;
 
 void PrintRecentCommandHistory() {
   // Log history of recent client side commands sent and received by the server
@@ -225,26 +222,7 @@ void InitServer() {
   }
   // Remove Ack from queue and get thread id for thread proc message handler from server
   const auto ackResponse = DeviceBridge::pop_front();
-  gpServerMessageChannel = std::make_unique<MessageChannelClient>(static_cast<uint32_t>(ackResponse.pHandle));
-  {
-    // Special handling for certain window messages to disable semaphore timeouts
-    // when the game window is not currently active or in the foreground. Note
-    // that using keyboard focus is more reliable than WM_ACTIVATE and also does
-    // not lead to duplicate messages.
-    gpServerMessageChannel->registerHandler(WM_KILLFOCUS, [](uintptr_t wParam, intptr_t lParam) {
-      Logger::info("Client window became inactive, disabling timeouts for bridge client...");
-      GlobalOptions::setInfiniteRetries(true);
-      gpServerMessageChannel->send(WM_KILLFOCUS, wParam, lParam);
-      return true;
-    });
-
-    gpServerMessageChannel->registerHandler((UINT) WM_SETFOCUS, [](uintptr_t wParam, intptr_t lParam) {
-      Logger::info("Client window became active, reenabling timeouts for bridge client...");
-      GlobalOptions::setInfiniteRetries(false);
-      gpServerMessageChannel->send(WM_SETFOCUS, wParam, lParam);
-      return true;
-    });
-  }
+  initServerMessageChannel(ackResponse.pHandle);
 
   BridgeState::setServerState(BridgeState::ProcessState::Handshaking);
   Logger::info("Ack received! Handshake completed! Telling server to continue waiting for commands...");
@@ -376,243 +354,6 @@ extern "C" {
   }
 }
 
-// Process a window message for Remix purposes.
-// Returns true when messsage was consumed by Remix and needs to be swallowed
-// and so removed from the client application queue.
-bool ProcessMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-#ifdef _DEBUG
-  Logger::info(format_string("msg: %d, %d, %d, %d", msg, hWnd, wParam, lParam));
-#endif
-
-  {
-    std::scoped_lock lock(gWndProcListMapMutex);
-    if (ogWndProcList.find(hWnd) == ogWndProcList.end())
-      return true;
-  }
-
-  const bool uiWasActive = RemixState::isUIActive();
-
-  // Process remix renderer-related messages
-  if (gpRemixMessageChannel->onMessage(msg, wParam, lParam)) {
-    if (!uiWasActive && RemixState::isUIActive()) {
-      // Remix UI has been activated - unstick modifier keys at application side
-      WNDPROC prevWndProc;
-      {
-        std::scoped_lock lock(gWndProcListMapMutex);
-        prevWndProc = ogWndProcList[hWnd][0];
-      }
-      auto unstick = [hWnd, prevWndProc](uint32_t vk) {
-        CallWindowProc(prevWndProc, hWnd, WM_KEYUP, vk,
-          ((KF_REPEAT + KF_UP + MapVirtualKeyA(vk, MAPVK_VK_TO_VSC)) << 16) + 1);
-      };
-
-      unstick(VK_CONTROL);
-      unstick(VK_SHIFT);
-      unstick(VK_INSERT);
-
-      // To be able to ignore target app WinHooks,
-      // bridge WinHooks must be on a top of the hook chain.
-      // So reattach bridge WinHooks each time, as the app might
-      // set and reset its own hooks at any moment
-      InputWinHooksReattach();
-    }
-
-    // Message was handled - bail out
-    return true;
-  }
-
-  // Process server-related messages
-  gpServerMessageChannel->onMessage(msg, wParam, lParam);
-
-  if (RemixState::isUIActive()) {
-    // ImGUI attempts to track when mouse leaves the window area using Windows API.
-    // Some games with DirectInput in windowed mode may receive a WM_MOUSELEAVE message
-    // after every WM_MOUSEMOVE message and this will result in ImGUI mouse cursor
-    // toggling between -FLT_MAX and current mouse position.
-    // To WAR it just swallow the WM_MOUSELEAVE messages when Remix UI is active.
-    if (msg == WM_MOUSELEAVE) {
-      // Swallow message 
-      return true;
-    }
-
-    // Game overlay style message swallowing section
-    {
-      if (msg == WM_SYSCOMMAND) {
-        // Swallow window move and size messages when UI is active.
-        if (wParam == SC_MOVE || wParam == SC_SIZE || wParam == 0xF012 ||
-            wParam == SC_MINIMIZE || wParam == SC_MAXIMIZE) {
-          return true;
-        }
-      }
-
-      // Process WM_NCMOUSEMOVE to WM_NCXBUTTONDBLCLK
-      if ((msg & 0xFFA0) == 0x00A0) {
-        // Swallow all non-client window messages when UI is active.
-        switch (wParam) {
-        case HTCLOSE:
-          // Only Close button is allowed
-          break;
-        default:
-          return true;
-        }
-      }
-    }
-  }
-
-  // WAR: on Win11 preview build 25236 the WM_INPUT message sent to a thread proc
-  // causes a WIN32K_CRITICAL_FAILURE bug check. This could creep into winnext
-  // release so let's just block it here since we do not need this message anyway
-  // on Remix renderer side.
-  const bool doForward = msg != WM_INPUT;
-
-  // Forward to remix renderer
-  if (doForward) {
-    gpRemixMessageChannel->send(msg, wParam, lParam);
-  }
-
-  // Block the input message when Remix UI is active
-  if (RemixState::isUIActive() && isInputMessage(msg)) {
-    // Block all input except ALT key up event.
-    // ALT is a very special key, we must pass the key up event for ALT or risking
-    // to stop receiving mouse events.
-    if (msg != WM_KEYUP || wParam != VK_MENU) {
-      return true;
-    }
-  }
-  return false;
-}
-
-LRESULT WINAPI RemixWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-  const bool isUnicode = IsWindowUnicode(hWnd);
-
-  LRESULT lresult = 0;
-  gRemixWndProcEntryExitCountMap[msg] += 1;
-  int curEntryExitCount = gRemixWndProcEntryExitCountMap[msg];
-
-  if  (curEntryExitCount == 1)
-  {
-    if (msg == WM_ACTIVATEAPP || msg == WM_SIZE || msg == WM_DESTROY) {
-      gSwapChainMapMutex.lock();
-      if (gSwapChainMap.find(hWnd) != gSwapChainMap.end()) {
-        /*
-        * The following lines are adapted from source in the DXVK repo
-        * at https://github.com/doitsujin/dxvk/blob/master/src/d3d9/d3d9_window.cpp
-        */
-        if (msg == WM_DESTROY) {
-          gSwapChainMap.erase(hWnd);
-        } else {
-          struct WindowDisplayData data = gSwapChainMap[hWnd];
-          D3DPRESENT_PARAMETERS presParams = data.presParam;
-          if (msg == WM_ACTIVATEAPP && !presParams.Windowed && !(msg == WM_NCCALCSIZE && wParam == TRUE)) {
-            D3DDEVICE_CREATION_PARAMETERS create_parms = data.createParam;
-            if (!(create_parms.BehaviorFlags & D3DCREATE_NOWINDOWCHANGES)) {
-              if (wParam) {
-                RECT rect;
-                bridge_util::GetMonitorRect(bridge_util::GetDefaultMonitor(), &rect);
-                SetWindowPos(hWnd, HWND_TOP, rect.left, rect.top, presParams.BackBufferWidth, presParams.BackBufferHeight,
-                  SWP_NOACTIVATE | SWP_NOZORDER | SWP_ASYNCWINDOWPOS);
-                Logger::info(format_string("Window's position is reset. Left: %d, Top: %d, Width: %d, Height: %d", rect.left, rect.top, presParams.BackBufferWidth, presParams.BackBufferHeight));
-              } else {
-                if (IsWindowVisible(hWnd))
-                  ShowWindowAsync(hWnd, SW_MINIMIZE);
-              }
-            }
-          } else if (msg == WM_SIZE) {
-            D3DDEVICE_CREATION_PARAMETERS create_parms = data.createParam;
-
-            if (!(create_parms.BehaviorFlags & D3DCREATE_NOWINDOWCHANGES) && !IsIconic(hWnd)) {
-              PostMessageW(hWnd, WM_ACTIVATEAPP, 1, GetCurrentThreadId());
-            }
-          }
-        }
-      }
-      gSwapChainMapMutex.unlock();
-    }
-    if (ProcessMessage(hWnd, msg, wParam, lParam)) {
-      lresult = !isUnicode ?
-        DefWindowProcA(hWnd, msg, wParam, lParam) :
-        DefWindowProcW(hWnd, msg, wParam, lParam);
-    } else {
-      WNDPROC prevWndProc;
-      {
-        std::scoped_lock lock(gWndProcListMapMutex);
-        prevWndProc = ogWndProcList[hWnd][0];
-      }
-      lresult = !isUnicode ?
-        CallWindowProcA(prevWndProc, hWnd, msg, wParam, lParam) :
-        CallWindowProcW(prevWndProc, hWnd, msg, wParam, lParam);
-    }
-  }
-  else  {
-    int wndProcListLen = 0;
-    {
-      std::scoped_lock lock(gWndProcListMapMutex);
-      if(ogWndProcList.find(hWnd) != ogWndProcList.end())
-        wndProcListLen = ogWndProcList[hWnd].size();
-    }
-    int curWndProcIndex = curEntryExitCount-1;
-    if (curWndProcIndex >= wndProcListLen) {
-      Logger::warn(logger_strings::WndProcExcessiveRecCall +  std::to_string(msg) + " wParam: " + std::to_string(wParam));
-      lresult = !isUnicode ?
-        DefWindowProcA(hWnd, msg, wParam, lParam) :
-        DefWindowProcW(hWnd, msg, wParam, lParam);
-    }
-    else {
-      WNDPROC prevWndProc;
-      {
-        std::scoped_lock lock(gWndProcListMapMutex);
-        prevWndProc = ogWndProcList[hWnd][curWndProcIndex];
-      }
-      lresult = !isUnicode ?
-        CallWindowProcA(prevWndProc, hWnd, msg, wParam, lParam) :
-        CallWindowProcW(prevWndProc, hWnd, msg, wParam, lParam);
-    }
-  }
-
-  gRemixWndProcEntryExitCountMap[msg] -= 1;
-
-  return lresult;
-}
-
-void setWinProc(const HWND hwnd, const bool bForce) {
-  if (!bForce) {
-    std::scoped_lock lock(gWndProcListMapMutex);
-    if (ogWndProcList.find(hwnd) != ogWndProcList.end())
-      return;
-  }
-  WNDPROC prevWndProc = reinterpret_cast<WNDPROC>(
-    SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(RemixWndProc))
-  );
-  {
-    std::scoped_lock lock(gWndProcListMapMutex);
-    // Remove previously stored window procedure to avoid duplicates
-    if (bForce) {
-      auto it = std::find(ogWndProcList[hwnd].begin(), ogWndProcList[hwnd].end(), prevWndProc);
-      if (it != ogWndProcList[hwnd].end()) {
-        ogWndProcList[hwnd].erase(it);
-      }
-    }
-    ogWndProcList[hwnd].push_front(prevWndProc);
-  }
-  DInputSetDefaultWindow(hwnd);
-}
-
-void removeWinProc(const HWND hwnd) {
-  WNDPROC prevWndProc;
-  {
-    std::scoped_lock lock(gWndProcListMapMutex);
-    if (ogWndProcList.find(hwnd) != ogWndProcList.end()) {
-      int wndProcListLen = ogWndProcList[hwnd].size();
-      prevWndProc = ogWndProcList[hwnd][wndProcListLen - 1];
-      ogWndProcList[hwnd].clear();
-      ogWndProcList.erase(hwnd);
-    } 
-    else
-      return;
-  }
-  SetWindowLongPtr(hwnd, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(prevWndProc));
-}
-
 bool RemixAttach(HMODULE hModule) {
   if (!gIsAttached) {
     // Sort out module/library handles
@@ -642,6 +383,10 @@ bool RemixAttach(HMODULE hModule) {
       return false;
     }
 
+    // Initialize WndProc logic
+    if(!WndProc::init()) {
+      Logger::warn("Failed to detour WndProc setter/getter. Remix UI will likely not work.");
+    }
 
     SetupExceptionHandler();
 
@@ -653,7 +398,7 @@ bool RemixAttach(HMODULE hModule) {
 
     DInputHookAttach();
 
-    gpRemixMessageChannel = std::make_unique<MessageChannelClient>("UWM_REMIX_BRIDGE_REGISTER_THREADPROC_MSG");
+    initRemixMessageChannel();
     RemixState::init(*gpRemixMessageChannel);
 
     initModuleBridge();
@@ -685,6 +430,7 @@ bool RemixAttach(HMODULE hModule) {
 
 void RemixDetach() {
   if (gIsAttached) {
+    WndProc::terminate();
     BridgeState::setClientState(BridgeState::ProcessState::DoneProcessing);
     Logger::info("About to unload bridge client.");
 

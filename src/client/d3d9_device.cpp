@@ -40,6 +40,7 @@
 #include "swapchain_map.h"
 #include "config/global_options.h"
 #include "remix_api.h"
+#include "window.h"
 
 #include "util_bridge_assert.h"
 #include "util_semaphore.h"
@@ -420,8 +421,9 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Reset(D3DPRESENT_PARAMETERS* pPresent
     // Reset all device state to default values and init implicit/internal objects
     ResetState();
     const auto presParam = Direct3DSwapChain9_LSS::sanitizePresentationParameters(*pPresentationParameters, getCreateParams());
-    // Add a hook into this window if we don't already have it.
-    setWinProc(getWinProcHwnd());
+    m_presParams = presParam;
+    WndProc::unset();
+    WndProc::set(getWinProcHwnd());
     // Tell Server to do the Reset
     size_t currentUID = 0;
     {
@@ -498,11 +500,6 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Present(CONST RECT* pSourceRect, CONS
     remixapi::g_presentCallback();
   }
 
-  // Seeing this in the log could indicate the game is sending inputs to a different window
-  if(GetWindowLongPtr(getWinProcHwnd(),GWLP_WNDPROC) != reinterpret_cast<LONG_PTR>(RemixWndProc)) {
-    setWinProc(getWinProcHwnd(), true);
-    Logger::warn("Detected non-Remix winproc on Present(), which is indicative of game resetting winproc after device creation. Remix winproc has been re-hooked. If this warning persists and remix GUI is not interactable, further intervention may be necessary.");
-  }
 
   if (SUCCEEDED(hresult)) {
     BRIDGE_DEVICE_LOCKGUARD();

@@ -46,9 +46,6 @@ extern LPDirect3DCreate9Ex orig_Direct3DCreate9Ex;
 extern Process* gpServer;
 extern bool gbBridgeRunning;
 
-LRESULT WINAPI RemixWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-void setWinProc(const HWND hwnd, const bool bForce = false);
-void removeWinProc(const HWND hwnd);
 void SetupExceptionHandler();
 
 // Some games do not use Begin-/EndScene which is required by some d3d9 API calls such as D3DXFont::DrawText()

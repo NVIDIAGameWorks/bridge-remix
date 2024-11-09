@@ -21,6 +21,7 @@
 */
 #pragma once
 
+#include "util_common.h"
 #include "util_version.h"
 
 #include <stdint.h>

@@ -22,6 +22,7 @@
 #include "d3d9_device_base.h"
 
 #include "d3d9_lss.h"
+#include "window.h"
 
 #include "util_modulecommand.h"
 
@@ -39,6 +40,9 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   , m_createParams(createParams)
   , m_presParams(presParams) {
   Logger::debug("Creating Device...");
+  
+  // Initialize WndProc logic
+  WndProc::set(getWinProcHwnd());
 
   // D3D9 seems to inialize its state to this
   memset(&m_state.renderStates[0], 0xBAADCAFE, sizeof(m_state.renderStates));
@@ -67,9 +71,6 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
 
   assert(m_createParams.hFocusWindow || m_presParams.hDeviceWindow);
 
-  setWinProc(getWinProcHwnd());
-  Logger::info(format_string("WinProcWnd: %x", getWinProcHwnd()));
-
   m_previousPresentParams = presParams;
   DWORD customBehaviorFlags = createParams.BehaviorFlags | D3DCREATE_NOWINDOWCHANGES;
   InitRamp();
@@ -95,7 +96,7 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   Logger::debug("...waiting for create device ack response from server...");
   if (Result::Success != DeviceBridge::waitForCommand(Commands::Bridge_Response, 0, nullptr, true, currentUID)) {
     Logger::err("...server-side D3D9 device creation failed with: no response from server.");
-    removeWinProc(getWinProcHwnd());
+    WndProc::unset();
     hresultOut = D3DERR_DEVICELOST;
     return;
   }
@@ -109,7 +110,7 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   if (FAILED(hresultOut)) {
     Logger::err(format_string("...server-side D3D9 device creation failed with %x.", hresultOut));
     // Release client device and report server error to the app
-    removeWinProc(getWinProcHwnd());
+    WndProc::unset();
     return;
   }
   Logger::debug("...server-side D3D9 device successfully created...");

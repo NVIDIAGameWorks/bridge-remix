@@ -19,17 +19,8 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
  */
-#pragma once
 
-#include <unordered_map>
-#include "d3d9.h"
+#include "message_channels.h"
 
-struct WindowDisplayData {
-  D3DPRESENT_PARAMETERS presParam;
-  D3DDEVICE_CREATION_PARAMETERS createParam;
-  size_t swapChainId;
-};
-using SwapChainMap = std::unordered_map<HWND, WindowDisplayData>;
-
-extern SwapChainMap gSwapChainMap;
-extern std::mutex gSwapChainMapMutex;
+std::unique_ptr<bridge_util::MessageChannelClient> gpServerMessageChannel; // Message channel with the Bridge server
+std::unique_ptr<bridge_util::MessageChannelClient> gpRemixMessageChannel;  // Message channel with the Remix renderer

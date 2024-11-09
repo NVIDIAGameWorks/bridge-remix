@@ -34,7 +34,20 @@ namespace logger_strings {
                                         "  *.log files in <application_directory>/rtx-remix/logs/\n"
                                         "  *.dmp files next to the application or in the .trex folder\n"
                                         "and report the error at https://github.com/NVIDIAGameWorks/rtx-remix/issues.";
-  constexpr char* WndProcExcessiveRecCall = "Detected excessive recursive calls to RemixWndProc - msg: ";
+  
+  namespace WndProc {
+    constexpr char* kStr_newSetWindowLong_settingHwnd = "[WndProc][NewSetWindowLong] Setting new HWND=0x%08x, OldHWND=0x%08x";
+    constexpr char* kStr_newSetWindowLong_settingWndProc = "[WndProc][NewSetWindowLong] Setting NewWndProc=0x%08x, OldWndProc=0x%08x";
+    constexpr char* kStr_newGetWindowLong_gettingWndProc = "[WndProc][NewGetWindowLong] Getting WndProc=0x%08x";
+    constexpr char* kStr_init_attachErr = "[WndProc][init] Attach failed!";
+    constexpr char* kStr_terminate_detachErr = "[WndProc][terminate] Detach failed!";
+    constexpr char* kStr_set_implicitWarn = "[WndProc][set] Calling WndProc::set(...) without an intermediate unset(). Calling implicitly...";
+    constexpr char* kStr_set_failedErr = "[WndProc][set] Failed!";
+    constexpr char* kStr_set_settingWndProc = "[WndProc][set] Setting RemixWndProc=0x%08x, GameWndProc=0x%08x";
+    constexpr char* kStr_unset_wndProcInvalidWarn = "[WndProc][unset] Previous WndProc is invalid.";
+    constexpr char* kStr_unset_unsettingWndProc = "[WndProc][unset] Unsetting prevWndProc=0x%08x, GameWndProc=0x%08x";
+  }
+
   inline static const std::map<const std::string, const std::string> bufferNameToOptionMap =
   {
     {"ModuleClient2ServerData", "moduleClientChannelMemSize"},

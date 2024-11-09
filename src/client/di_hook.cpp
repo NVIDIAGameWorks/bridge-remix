@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022-2023, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2022-2024, NVIDIA CORPORATION. All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,22 +23,16 @@
 #include <dinput.h>
 #include <strsafe.h>
 
-#include "detours.h"
+#include "detours_common.h"
 #include "d3d9_util.h"
 #include "remix_state.h"
 #include "config/global_options.h"
 #include "util_detourtools.h"
 #include "di_hook.h"
+#include "window.h"
 
 using namespace bridge_util;
 using namespace DI;
-
-extern std::unique_ptr<MessageChannelClient> gpRemixMessageChannel;
-extern bool ProcessMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-
-#define API_HOOK_DECL(x) inline static decltype(x)* Orig##x = nullptr
-#define API_ATTACH(x) error = DetourAttach(&(PVOID&)Orig##x, Hooked##x)
-#define API_DETACH(x) DetourDetach(&(PVOID&)Orig##x, Hooked##x)
 
 // Defining all required GUIDs locally so we do not need to link against the SDK
 #define _DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) \
@@ -116,7 +110,7 @@ private:
     if(!s_bIsExclusive[devType] || !evaluatePolicy(devType)) {
       return;
     }
-    ProcessMessage(s_hwnd, wm.msg, wm.wParam, wm.lParam);
+    WndProc::invokeRemixWndProc(wm.msg, wm.wParam, wm.lParam);
   }
 
   static bool evaluatePolicy(const DeviceType devType) {
@@ -366,14 +360,16 @@ protected:
 
       // LSByte of dwDevType indicates device type
       if (KeyboardDevice != thiz && (caps.dwDevType & 0xf) == kKeyboardDevType) {
-        Logger::info("DirectInput keyboard acquired");
+        ONCE(Logger::debug("DirectInput keyboard acquired"));
+        Logger::trace("DirectInput keyboard acquired");
         KeyboardDevice = thiz;
 
         if (ExclusiveMode.count(thiz) > 0) {
           DirectInputForwarder::setKeyboardExclusive(ExclusiveMode[thiz]);
         }
       } else if (MouseDevice != thiz && (caps.dwDevType & 0xf) == kMouseDevType) {
-        Logger::info("DirectInput mouse acquired");
+        ONCE(Logger::debug("DirectInput mouse acquired"));
+        Logger::trace("DirectInput mouse acquired");
         MouseDevice = thiz;
 
         if (ExclusiveMode.count(thiz) > 0) {
@@ -391,10 +387,12 @@ protected:
     const HRESULT hr = OrigUnacquire(thiz);
 
     if (KeyboardDevice && KeyboardDevice == thiz) {
-      Logger::info("DirectInput keyboard unacquired");
+      ONCE(Logger::debug("DirectInput keyboard unacquired"));
+      Logger::trace("DirectInput keyboard unacquired");
       KeyboardDevice = nullptr;
     } else if (MouseDevice && MouseDevice == thiz) {
-      Logger::info("DirectInput mouse unacquired");
+      ONCE(Logger::debug("DirectInput mouse unacquired"));
+      Logger::trace("DirectInput mouse unacquired");
       MouseDevice = nullptr;
     }
 
@@ -820,7 +818,7 @@ static BOOL WINAPI HookedPeekMessageA(LPMSG lpMsg, HWND hWnd,
 
     if (result && lpMsg && (wRemoveMsg & PM_REMOVE) != 0) {
       // The message has been removed so we need to process it here.
-      if (ProcessMessage(lpMsg->hwnd, lpMsg->message, lpMsg->wParam, lpMsg->lParam)) {
+      if (WndProc::invokeRemixWndProc(lpMsg->message, lpMsg->wParam, lpMsg->lParam)) {
         // Swallow the message
         continue;
       }
@@ -843,7 +841,7 @@ static BOOL WINAPI HookedPeekMessageW(LPMSG lpMsg, HWND hWnd,
 
     if (result && lpMsg && (wRemoveMsg & PM_REMOVE) != 0) {
       // The message has been removed so we need to process it here.
-      if (ProcessMessage(lpMsg->hwnd, lpMsg->message, lpMsg->wParam, lpMsg->lParam)) {
+      if (WndProc::invokeRemixWndProc(lpMsg->message, lpMsg->wParam, lpMsg->lParam)) {
         // Swallow the message
         continue;
       }
@@ -863,7 +861,7 @@ static BOOL WINAPI HookedGetMessageA(LPMSG lpMsg, HWND hWnd,
     result = OrigGetMessageA(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
 
     if (result && result != -1 && lpMsg) {
-      if (ProcessMessage(lpMsg->hwnd, lpMsg->message, lpMsg->wParam, lpMsg->lParam)) {
+      if (WndProc::invokeRemixWndProc(lpMsg->message, lpMsg->wParam, lpMsg->lParam)) {
         // Swallow the message
         continue;
       }
@@ -883,7 +881,7 @@ static BOOL WINAPI HookedGetMessageW(LPMSG lpMsg, HWND hWnd,
     result = OrigGetMessageW(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
 
     if (result && result != -1 && lpMsg) {
-      if (ProcessMessage(lpMsg->hwnd, lpMsg->message, lpMsg->wParam, lpMsg->lParam)) {
+      if (WndProc::invokeRemixWndProc(lpMsg->message, lpMsg->wParam, lpMsg->lParam)) {
         // Swallow the message
         continue;
       }

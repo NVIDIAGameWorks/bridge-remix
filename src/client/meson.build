@@ -48,9 +48,11 @@ d3d9_src = files([
   'd3d9_volume.cpp',
   'd3d9_volumetexture.cpp',
   'di_hook.cpp',
+  'message_channels.cpp',
   'pch.cpp',
   'remix_api.cpp',
   'remix_state.cpp',
+  'window.cpp',
 ])
 
 d3d9_header = files([
@@ -78,13 +80,16 @@ d3d9_header = files([
   'd3d9_volume.h',
   'd3d9_volumetexture.h',
   'swapchain_map.h',
+  'detours_common.h',
   'di_hook.h',
   'framework.h',
   'lockable_buffer.h',
+  'message_channels.h',
   'pch.h',
   'remix_state.h',
   'resource.h',
   'shadow_map.h',
+  'window.h',
 ])
 
 d3d9_def = files([
@@ -95,7 +100,7 @@ detours_include_path = include_directories('../../ext/Detours/src')
 
 thread_dep = dependency('threads')
 
-d3d9_dll = shared_library('d3d9', d3d9_src, d3d9_res, d3d9_header,
+d3d9_dll = shared_library('d3d9', d3d9_header, d3d9_src, d3d9_res, 
   sources             : [ bridge_version ],
   dependencies        : [ thread_dep, util_dep, lib_version, lib_version, lib_commCtrl, tracy_dep ],
   include_directories : [ bridge_include_path, util_include_path, detours_include_path, public_include_path, ext_include_path ],

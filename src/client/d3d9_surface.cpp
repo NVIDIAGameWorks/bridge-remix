@@ -50,7 +50,7 @@ Direct3DSurface9_LSS::~Direct3DSurface9_LSS() {
       bridge_util::calcTotalSizeOfRect(m_desc.Width, m_desc.Height, m_desc.Format);
 
     g_totalSurfaceShadow -= surfaceSize;
-    Logger::debug(format_string("Releasing shadow of surface [%p] "
+    Logger::trace(format_string("Releasing shadow of surface [%p] "
                                 "(size: %zd, total surface shadow size: %zd)",
                                 this, surfaceSize, g_totalSurfaceShadow));
   }
@@ -223,7 +223,7 @@ bool Direct3DSurface9_LSS::lock(D3DLOCKED_RECT& lockedRect, const RECT* pRect, c
     if (!m_shadow) {
       m_shadow.reset(new uint8_t[surfaceSize]);
       g_totalSurfaceShadow += surfaceSize;
-      Logger::debug(format_string("Allocated a shadow for surface [%p] "
+      Logger::trace(format_string("Allocated a shadow for surface [%p] "
                                   "(size: %zd, total surface shadow size: %zd)",
                                   this, surfaceSize, g_totalSurfaceShadow));
     }

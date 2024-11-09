@@ -364,7 +364,7 @@ private:
     // inactivity these calls won't time out.
     infiniteRetries = bridge_util::Config::getOption<bool>("infiniteRetries", false);
     
-#ifdef _DEBUG
+#if defined(_DEBUG) || defined(DEBUGOPT)
     constexpr char kDefaultLogLevel[] = "Debug";
 #else
     constexpr char kDefaultLogLevel[] = "Info";

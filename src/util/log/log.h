@@ -23,6 +23,8 @@
 
 #include "../util_common.h"
 
+#include "log/log_strings.h"
+
 #include <fstream>
 #include <mutex>
 #include <string>

@@ -179,7 +179,7 @@ protected:
   const bool m_ex;
   Direct3D9Ex_LSS* const m_pDirect3D = nullptr;
   const D3DDEVICE_CREATION_PARAMETERS m_createParams;
-  const D3DPRESENT_PARAMETERS m_presParams;
+  D3DPRESENT_PARAMETERS m_presParams;
 
   D3DGAMMARAMP m_gammaRamp;
   D3DPRESENT_PARAMETERS m_previousPresentParams;

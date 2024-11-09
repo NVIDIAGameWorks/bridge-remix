@@ -51,11 +51,13 @@ recursive_copy_path = global_src_root_norm + '/scripts-common/recursive_copy' + 
 add_project_arguments('-DNOMINMAX', language : 'cpp')
 vs_project_defines = 'NOMINMAX;'
 
-if get_option('buildtype') != 'debug'
+build_type = get_option('buildtype')
+
+if build_type != 'debug' and build_type != 'debugoptimized'
   add_project_arguments('-DNDEBUG', language: 'cpp')
 endif
 
-if get_option('buildtype') == 'debugoptimized'
+if build_type == 'debugoptimized'
   add_project_arguments('/DDEBUGOPT', language: 'cpp')
   vs_project_defines += 'DEBUGOPT;'
 endif

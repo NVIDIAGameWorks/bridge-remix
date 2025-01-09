@@ -72,14 +72,17 @@ static LONG WINAPI NewSetWindowLong(_In_ HWND hWnd, _In_ int nIndex, _In_ LONG d
     // If we haven't yet set the RemixWndProc, as is evident by g_gameWndProc being invalid, then just
     // call OrigSetWindowLong as usual
     if(isSet()) {
+      // We only handle cases wherein the window's handle matches the window's handle 
+      // used in D3DDEVICE_CREATION_PARAMETERS or D3DPRESENT_PARAMETERS
       if(hWnd != g_hwnd) {
         Logger::debug(format_string(kStr_newSetWindowLong_settingHwnd, hWnd, g_hwnd));
-        g_hwnd = hWnd;
       }
-      auto oldGameWndProc = asLong(g_gameWndProc);
-      g_gameWndProc = asWndProcP(dwNewLong);
-      Logger::debug(format_string(kStr_newSetWindowLong_settingWndProc, g_gameWndProc, oldGameWndProc));
-      return oldGameWndProc;
+      else {
+        auto oldGameWndProc = asLong(g_gameWndProc);
+        g_gameWndProc = asWndProcP(dwNewLong);
+        Logger::debug(format_string(kStr_newSetWindowLong_settingWndProc, g_gameWndProc, oldGameWndProc));
+        return oldGameWndProc;
+      }
     }
   }
   if constexpr (bUnicode) {
@@ -97,7 +100,10 @@ static LONG WINAPI NewGetWindowLong(_In_ HWND hWnd, _In_ int nIndex) {
     // call OrigGetWindowLong as usual
     if(isSet()) {
       Logger::debug(format_string(kStr_newGetWindowLong_gettingWndProc, g_gameWndProc));
-      return asLong(g_gameWndProc);
+      // We only handle cases wherein the window's handle matches the window's handle 
+      // used in D3DDEVICE_CREATION_PARAMETERS or D3DPRESENT_PARAMETERS
+      if (hWnd == g_hwnd)
+        return asLong(g_gameWndProc);
     }
   }
   if constexpr (bUnicode) {
@@ -355,6 +361,7 @@ bool set(HWND hwnd) {
   DInputSetDefaultWindow(hwnd);
 
   Logger::debug(format_string(kStr_set_settingWndProc, RemixWndProc, g_gameWndProc));
+
   return true;
 }
 
@@ -375,6 +382,7 @@ bool unset() {
   g_gameWndProc = nullptr;
 
   Logger::debug(format_string(kStr_unset_unsettingWndProc, prevWndProc, g_gameWndProc));
+
   return true;
 }
 

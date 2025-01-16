@@ -171,9 +171,12 @@ HRESULT Direct3DVolumeTexture9_LSS::UnlockBox(UINT Level) {
 
 HRESULT Direct3DVolumeTexture9_LSS::AddDirtyBox(CONST D3DBOX* pDirtyBox) {
   LogFunctionCall();
+
+  UID currentUID = 0;
   {
     ClientMessage c(Commands::IDirect3DVolumeTexture9_AddDirtyBox, getId());
+    currentUID = c.get_uid();
     c.send_data(sizeof(D3DBOX), (void*) pDirtyBox);
   }
-  return S_OK;
+  WAIT_FOR_OPTIONAL_SERVER_RESPONSE("AddDirtyBox()", D3DERR_INVALIDCALL, currentUID);
 }

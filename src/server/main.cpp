@@ -2195,7 +2195,16 @@ void ProcessDeviceCommandQueue() {
         break;
       }
       case IDirect3DVolumeTexture9_AddDirtyBox:
+      {
+        GET_HND(pHandle);
+        PULL_U(Level);
+        PULL_OBJ(D3DBOX, pBox);
+        const auto& pVolumeTexture = (IDirect3DVolumeTexture9*) gpD3DResources[pHandle];
+        const auto hresult = pVolumeTexture->AddDirtyBox(IN pBox);
+        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        assert(SUCCEEDED(hresult));
         break;
+      }
 
       /*
        * IDirect3DCubeTexture9 interface
@@ -2293,7 +2302,16 @@ void ProcessDeviceCommandQueue() {
         break;
       }
       case IDirect3DCubeTexture9_AddDirtyRect:
+      {
+        GET_HND(pCubeTextureHandle);
+        PULL(D3DCUBEMAP_FACES, FaceType);
+        PULL_OBJ(RECT, pDirtyRect);
+        const auto& pCubeTexture = (IDirect3DCubeTexture9*) gpD3DResources[pCubeTextureHandle];
+        const auto hresult = pCubeTexture->AddDirtyRect(IN FaceType, IN pDirtyRect);
+        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        assert(SUCCEEDED(hresult));
         break;
+      }
 
         /*
          * IDirect3DVertexBuffer9 interface

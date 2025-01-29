@@ -95,26 +95,6 @@ HRESULT Direct3DSwapChain9_LSS::reset(const D3DPRESENT_PARAMETERS &pPresentParam
 
       m_monitor = nullptr;
     }
-    if (modifyWindow && (
-      pPresentParams.BackBufferWidth != prevPresentParams.BackBufferWidth ||
-      pPresentParams.BackBufferHeight != prevPresentParams.BackBufferHeight)) {
-
-      // Adjust window position and size
-      RECT newRect = { 0, 0, 0, 0 };
-      RECT oldRect = { 0, 0, 0, 0 };
-      ::GetWindowRect(m_window, &oldRect);
-      ::MapWindowPoints(HWND_DESKTOP, ::GetParent(m_window), reinterpret_cast<POINT*>(&oldRect), 1);
-      ::SetRect(&newRect, 0, 0, pPresentParams.BackBufferWidth, pPresentParams.BackBufferHeight);
-      ::AdjustWindowRectEx(&newRect,
-        ::GetWindowLongW(m_window, GWL_STYLE), FALSE,
-        ::GetWindowLongW(m_window, GWL_EXSTYLE));
-      ::SetRect(&newRect, 0, 0, newRect.right - newRect.left, newRect.bottom - newRect.top);
-      ::OffsetRect(&newRect, oldRect.left, oldRect.top);
-      // Should use SetWindowPos rather than MoveWindow to avoid cross process deadlock
-      ::SetWindowPos(m_window, nullptr, newRect.left, newRect.top,
-          newRect.right - newRect.left, newRect.bottom - newRect.top, SWP_NOACTIVATE | SWP_NOZORDER | SWP_ASYNCWINDOWPOS);
-      Logger::info(format_string("Window's position is reset with change in backbuffer metrics. PreviousBackBufferWidth: %d, PreviousBackBufferHeight: %d, CurrentBackBufferWidth: %d, CurrentBackBufferHeight: %d", prevPresentParams.BackBufferWidth, prevPresentParams.BackBufferHeight, pPresentParams.BackBufferWidth, pPresentParams.BackBufferHeight));
-    }
   }
   else {
     if (modifyWindow) {

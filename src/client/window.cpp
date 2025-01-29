@@ -47,6 +47,7 @@ namespace {
 
 HWND g_hwnd = nullptr;
 WNDPROC g_gameWndProc = nullptr;
+bool g_bActivateProcessed = false;
 
 // reinterpret_cast wrappers
 template<typename T>
@@ -164,15 +165,17 @@ void windowMsg(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
       if (msg == WM_ACTIVATEAPP && !presParams.Windowed && !(msg == WM_NCCALCSIZE && wParam == TRUE)) {
         D3DDEVICE_CREATION_PARAMETERS create_parms = data.createParam;
         if (!(create_parms.BehaviorFlags & D3DCREATE_NOWINDOWCHANGES)) {
-          if (wParam) {
+          if (wParam && !g_bActivateProcessed) {
             RECT rect;
             GetMonitorRect(GetDefaultMonitor(), &rect);
             SetWindowPos(hWnd, HWND_TOP, rect.left, rect.top, presParams.BackBufferWidth, presParams.BackBufferHeight,
               SWP_NOACTIVATE | SWP_NOZORDER | SWP_ASYNCWINDOWPOS);
             Logger::info(format_string("Window's position is reset. Left: %d, Top: %d, Width: %d, Height: %d", rect.left, rect.top, presParams.BackBufferWidth, presParams.BackBufferHeight));
-          } else {
+            g_bActivateProcessed = true;
+          } else if (!wParam) {
             if (IsWindowVisible(hWnd))
               ShowWindowAsync(hWnd, SW_MINIMIZE);
+            g_bActivateProcessed = false;
           }
         }
       } else if (msg == WM_SIZE) {

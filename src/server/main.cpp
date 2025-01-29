@@ -532,13 +532,11 @@ void ProcessDeviceCommandQueue() {
       }
       case IDirect3DDevice9Ex_GetDirect3D:
       {
-        if (GlobalOptions::getSendReadOnlyCalls()) {
-          GET_RES(pD3DDevice, gpD3DDevices);
-          IDirect3D9* pD3D = nullptr;
-          const auto hresult = pD3DDevice->GetDirect3D(OUT & pD3D);
-          assert(SUCCEEDED(hresult));
-          assert(gpD3D == pD3D); // The two pointers should be identical
-        }
+        GET_RES(pD3DDevice, gpD3DDevices);
+        IDirect3D9* pD3D = nullptr;
+        const auto hresult = pD3DDevice->GetDirect3D(OUT & pD3D);
+        assert(SUCCEEDED(hresult));
+        assert(gpD3D == pD3D); // The two pointers should be identical
         break;
       }
       case IDirect3DDevice9Ex_GetDeviceCaps:
@@ -626,24 +624,20 @@ void ProcessDeviceCommandQueue() {
       }
       case IDirect3DDevice9Ex_GetSwapChain:
       {
-        if (GlobalOptions::getSendReadOnlyCalls()) {
-          GET_RES(pD3DDevice, gpD3DDevices);
-          PULL_U(iSwapChain);
-          IDirect3DSwapChain9* pSwapChain = nullptr;
-          const auto hresult = pD3DDevice->GetSwapChain(iSwapChain, &pSwapChain);
-          assert(SUCCEEDED(hresult));
-          assert(pSwapChain != nullptr);
-        }
+        GET_RES(pD3DDevice, gpD3DDevices);
+        PULL_U(iSwapChain);
+        IDirect3DSwapChain9* pSwapChain = nullptr;
+        const auto hresult = pD3DDevice->GetSwapChain(iSwapChain, &pSwapChain);
+        assert(SUCCEEDED(hresult));
+        assert(pSwapChain != nullptr);
         break;
       }
       case IDirect3DDevice9Ex_GetNumberOfSwapChains:
       {
-        if (GlobalOptions::getSendReadOnlyCalls()) {
-          GET_RES(pD3DDevice, gpD3DDevices);
-          PULL_U(orig_cnt);
-          const auto cnt = pD3DDevice->GetNumberOfSwapChains();
-          assert(orig_cnt == cnt);
-        }
+        GET_RES(pD3DDevice, gpD3DDevices);
+        PULL_U(orig_cnt);
+        const auto cnt = pD3DDevice->GetNumberOfSwapChains();
+        assert(orig_cnt == cnt);
         break;
       }
       case IDirect3DDevice9Ex_Reset:
@@ -736,12 +730,10 @@ void ProcessDeviceCommandQueue() {
       }
       case IDirect3DDevice9Ex_GetGammaRamp:
       {
-        if (GlobalOptions::getSendReadOnlyCalls()) {
-          GET_RES(pD3DDevice, gpD3DDevices);
-          PULL_U(iSwapChain);
-          D3DGAMMARAMP pRamp;
-          pD3DDevice->GetGammaRamp(iSwapChain, &pRamp);
-        }
+        GET_RES(pD3DDevice, gpD3DDevices);
+        PULL_U(iSwapChain);
+        D3DGAMMARAMP pRamp;
+        pD3DDevice->GetGammaRamp(iSwapChain, &pRamp);
         break;
       }
       case IDirect3DDevice9Ex_CreateTexture:
@@ -1263,7 +1255,17 @@ void ProcessDeviceCommandQueue() {
       case IDirect3DDevice9Ex_GetScissorRect:
         break;
       case IDirect3DDevice9Ex_SetSoftwareVertexProcessing:
+      {
+        GET_RES(pD3DDevice, gpD3DDevices);
+        PULL(BOOL, bSoftware);
+        const auto hresult = pD3DDevice->SetSoftwareVertexProcessing(bSoftware);
+        assert(SUCCEEDED(hresult));
+        {
+          ServerMessage c(Commands::Bridge_Response, currentUID);
+          c.send_data(hresult);
+        }
         break;
+      }
       case IDirect3DDevice9Ex_GetSoftwareVertexProcessing:
         break;
       case IDirect3DDevice9Ex_SetNPatchMode:
@@ -2000,13 +2002,11 @@ void ProcessDeviceCommandQueue() {
         break;
       case IDirect3DTexture9_GetLevelCount:
       {
-        if (GlobalOptions::getSendReadOnlyCalls()) {
-          GET_HND(pHandle);
-          PULL_D(orig_cnt);
-          const auto& pTexture = (IDirect3DTexture9*) gpD3DResources[pHandle];
-          const auto cnt = pTexture->GetLevelCount();
-          assert(orig_cnt == cnt);
-        }
+        GET_HND(pHandle);
+        PULL_D(orig_cnt);
+        const auto& pTexture = (IDirect3DTexture9*) gpD3DResources[pHandle];
+        const auto cnt = pTexture->GetLevelCount();
+        assert(orig_cnt == cnt);
         break;
       }
       case IDirect3DTexture9_SetAutoGenFilterType:
@@ -2017,15 +2017,13 @@ void ProcessDeviceCommandQueue() {
         break;
       case IDirect3DTexture9_GetLevelDesc:
       {
-        if (GlobalOptions::getSendReadOnlyCalls()) {
-          GET_HND(pHandle);
-          PULL_OBJ(D3DSURFACE_DESC, orig_desc);
-          PULL_U(Level);
-          const auto& pTexture = (IDirect3DTexture9*) gpD3DResources[pHandle];
-          D3DSURFACE_DESC pDesc;
-          const auto hresult = pTexture->GetLevelDesc(Level, &pDesc);
-          assert(SUCCEEDED(hresult));
-        }
+        GET_HND(pHandle);
+        PULL_OBJ(D3DSURFACE_DESC, orig_desc);
+        PULL_U(Level);
+        const auto& pTexture = (IDirect3DTexture9*) gpD3DResources[pHandle];
+        D3DSURFACE_DESC pDesc;
+        const auto hresult = pTexture->GetLevelDesc(Level, &pDesc);
+        assert(SUCCEEDED(hresult));
         break;
       }
       case IDirect3DTexture9_GetSurfaceLevel:
@@ -2105,13 +2103,11 @@ void ProcessDeviceCommandQueue() {
         break;
       case IDirect3DVolumeTexture9_GetLevelCount:
       {
-        if (GlobalOptions::getSendReadOnlyCalls()) {
-          GET_HND(pHandle);
-          PULL_D(orig_cnt);
-          const auto& pVolumeTexture = (IDirect3DVolumeTexture9*) gpD3DResources[pHandle];
-          const auto cnt = pVolumeTexture->GetLevelCount();
-          assert(orig_cnt == cnt);
-        }
+        GET_HND(pHandle);
+        PULL_D(orig_cnt);
+        const auto& pVolumeTexture = (IDirect3DVolumeTexture9*) gpD3DResources[pHandle];
+        const auto cnt = pVolumeTexture->GetLevelCount();
+        assert(orig_cnt == cnt);
         break;
       }
       case IDirect3DVolumeTexture9_SetAutoGenFilterType:
@@ -2122,15 +2118,13 @@ void ProcessDeviceCommandQueue() {
         break;
       case IDirect3DVolumeTexture9_GetLevelDesc:
       {
-        if (GlobalOptions::getSendReadOnlyCalls()) {
-          GET_HND(pHandle);
-          PULL_OBJ(D3DVOLUME_DESC, orig_desc);
-          PULL_U(Level);
-          const auto& pVolumeTexture = (IDirect3DVolumeTexture9*) gpD3DResources[pHandle];
-          D3DVOLUME_DESC pDesc;
-          const auto hresult = pVolumeTexture->GetLevelDesc(Level, &pDesc);
-          assert(SUCCEEDED(hresult));
-        }
+        GET_HND(pHandle);
+        PULL_OBJ(D3DVOLUME_DESC, orig_desc);
+        PULL_U(Level);
+        const auto& pVolumeTexture = (IDirect3DVolumeTexture9*) gpD3DResources[pHandle];
+        D3DVOLUME_DESC pDesc;
+        const auto hresult = pVolumeTexture->GetLevelDesc(Level, &pDesc);
+        assert(SUCCEEDED(hresult));
         break;
       }
       case IDirect3DVolumeTexture9_GetVolumeLevel:
@@ -2248,13 +2242,11 @@ void ProcessDeviceCommandQueue() {
         break;
       case IDirect3DCubeTexture9_GetLevelCount:
       {
-        if (GlobalOptions::getSendReadOnlyCalls()) {
-          GET_HND(pHandle);
-          PULL_D(orig_cnt);
-          const auto& pCubeTexture = (IDirect3DCubeTexture9*) gpD3DResources[pHandle];
-          const auto cnt = pCubeTexture->GetLevelCount();
-          assert(orig_cnt == cnt);
-        }
+        GET_HND(pHandle);
+        PULL_D(orig_cnt);
+        const auto& pCubeTexture = (IDirect3DCubeTexture9*) gpD3DResources[pHandle];
+        const auto cnt = pCubeTexture->GetLevelCount();
+        assert(orig_cnt == cnt);
         break;
       }
       case IDirect3DCubeTexture9_SetAutoGenFilterType:
@@ -2265,15 +2257,13 @@ void ProcessDeviceCommandQueue() {
         break;
       case IDirect3DCubeTexture9_GetLevelDesc:
       {
-        if (GlobalOptions::getSendReadOnlyCalls()) {
-          PULL_OBJ(D3DSURFACE_DESC, orig_desc);
-          PULL_U(Level);
-          GET_HND(pHandle);
-          const auto& pCubeTexture = (IDirect3DCubeTexture9*) gpD3DResources[pHandle];
-          D3DSURFACE_DESC pDesc;
-          const auto hresult = pCubeTexture->GetLevelDesc(Level, &pDesc);
-          assert(SUCCEEDED(hresult));
-        }
+        PULL_OBJ(D3DSURFACE_DESC, orig_desc);
+        PULL_U(Level);
+        GET_HND(pHandle);
+        const auto& pCubeTexture = (IDirect3DCubeTexture9*) gpD3DResources[pHandle];
+        D3DSURFACE_DESC pDesc;
+        const auto hresult = pCubeTexture->GetLevelDesc(Level, &pDesc);
+        assert(SUCCEEDED(hresult));
         break;
       }
       case IDirect3DCubeTexture9_GetCubeMapSurface:
@@ -2390,14 +2380,12 @@ void ProcessDeviceCommandQueue() {
       }
       case IDirect3DVertexBuffer9_GetDesc:
       {
-        if (GlobalOptions::getSendReadOnlyCalls()) {
-          GET_HND(pHandle);
-          PULL_OBJ(D3DVERTEXBUFFER_DESC, orig_desc);
-          const auto& pVertexBuffer = (IDirect3DVertexBuffer9*) gpD3DResources[pHandle];
-          D3DVERTEXBUFFER_DESC pDesc;
-          const auto hresult = pVertexBuffer->GetDesc(OUT & pDesc);
-          assert(SUCCEEDED(hresult));
-        }
+        GET_HND(pHandle);
+        PULL_OBJ(D3DVERTEXBUFFER_DESC, orig_desc);
+        const auto& pVertexBuffer = (IDirect3DVertexBuffer9*) gpD3DResources[pHandle];
+        D3DVERTEXBUFFER_DESC pDesc;
+        const auto hresult = pVertexBuffer->GetDesc(OUT & pDesc);
+        assert(SUCCEEDED(hresult));
         break;
       }
 
@@ -2477,14 +2465,12 @@ void ProcessDeviceCommandQueue() {
       }
       case IDirect3DIndexBuffer9_GetDesc:
       {
-        if (GlobalOptions::getSendReadOnlyCalls()) {
-          GET_HND(pHandle);
-          PULL_OBJ(D3DINDEXBUFFER_DESC, orig_desc);
-          const auto& pIndexBuffer = (IDirect3DIndexBuffer9*) gpD3DResources[pHandle];
-          D3DINDEXBUFFER_DESC pDesc;
-          const auto hresult = pIndexBuffer->GetDesc(OUT & pDesc);
-          assert(SUCCEEDED(hresult));
-        }
+        GET_HND(pHandle);
+        PULL_OBJ(D3DINDEXBUFFER_DESC, orig_desc);
+        const auto& pIndexBuffer = (IDirect3DIndexBuffer9*) gpD3DResources[pHandle];
+        D3DINDEXBUFFER_DESC pDesc;
+        const auto hresult = pIndexBuffer->GetDesc(OUT & pDesc);
+        assert(SUCCEEDED(hresult));
         break;
       }
 
@@ -2528,14 +2514,12 @@ void ProcessDeviceCommandQueue() {
         break;
       case IDirect3DSurface9_GetDesc:
       {
-        if (GlobalOptions::getSendReadOnlyCalls()) {
-          GET_HND(pHandle);
-          PULL_OBJ(D3DSURFACE_DESC, orig_desc);
-          const auto& pSurface = (IDirect3DSurface9*) gpD3DResources[pHandle];
-          D3DSURFACE_DESC pDesc;
-          const auto hresult = pSurface->GetDesc(OUT & pDesc);
-          assert(SUCCEEDED(hresult));
-        }
+        GET_HND(pHandle);
+        PULL_OBJ(D3DSURFACE_DESC, orig_desc);
+        const auto& pSurface = (IDirect3DSurface9*) gpD3DResources[pHandle];
+        D3DSURFACE_DESC pDesc;
+        const auto hresult = pSurface->GetDesc(OUT & pDesc);
+        assert(SUCCEEDED(hresult));
         break;
       }
       case IDirect3DSurface9_LockRect:
@@ -2624,14 +2608,12 @@ void ProcessDeviceCommandQueue() {
         break;
       case IDirect3DVolume9_GetDesc:
       {
-        if (GlobalOptions::getSendReadOnlyCalls()) {
-          GET_HND(pHandle);
-          PULL_OBJ(D3DVOLUME_DESC, orig_desc);
-          const auto& pVolume = gpD3DVolumes[pHandle];
-          D3DVOLUME_DESC pDesc;
-          const auto hresult = pVolume->GetDesc(OUT & pDesc);
-          assert(SUCCEEDED(hresult));
-        }
+        GET_HND(pHandle);
+        PULL_OBJ(D3DVOLUME_DESC, orig_desc);
+        const auto& pVolume = gpD3DVolumes[pHandle];
+        D3DVOLUME_DESC pDesc;
+        const auto hresult = pVolume->GetDesc(OUT & pDesc);
+        assert(SUCCEEDED(hresult));
         break;
       }
       case IDirect3DVolume9_LockBox:

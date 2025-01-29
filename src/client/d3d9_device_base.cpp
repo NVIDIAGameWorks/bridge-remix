@@ -44,6 +44,9 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   // Initialize WndProc logic
   WndProc::set(getWinProcHwnd());
 
+  //Setting default value
+  m_maxFrameLatency = 3;
+
   // D3D9 seems to inialize its state to this
   memset(&m_state.renderStates[0], 0xBAADCAFE, sizeof(m_state.renderStates));
 
@@ -72,6 +75,7 @@ BaseDirect3DDevice9Ex_LSS::BaseDirect3DDevice9Ex_LSS(const bool bExtended,
   assert(m_createParams.hFocusWindow || m_presParams.hDeviceWindow);
 
   m_previousPresentParams = presParams;
+  m_bSoftwareVtxProcessing = (createParams.BehaviorFlags & D3DCREATE_SOFTWARE_VERTEXPROCESSING) ? true : false;
   DWORD customBehaviorFlags = createParams.BehaviorFlags | D3DCREATE_NOWINDOWCHANGES;
   InitRamp();
   

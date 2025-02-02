@@ -3801,14 +3801,22 @@ void Direct3DDevice9Ex_LSS<EnableSync>::initImplicitSwapchain(const D3DPRESENT_P
 template<bool EnableSync>
 void Direct3DDevice9Ex_LSS<EnableSync>::initImplicitRenderTarget() {
   IDirect3DSurface9* pRenderTarget = nullptr;
-  CreateRenderTarget(GET_PRES_PARAM().BackBufferWidth,
-                     GET_PRES_PARAM().BackBufferHeight,
-                     GET_PRES_PARAM().BackBufferFormat,
-                     GET_PRES_PARAM().MultiSampleType,
-                     GET_PRES_PARAM().MultiSampleQuality,
-                     false,
-                     &pRenderTarget,
-                     nullptr);
+
+  // Creating a place-holder surface
+  D3DSURFACE_DESC desc;
+  desc.Width = GET_PRES_PARAM().BackBufferWidth;
+  desc.Height = GET_PRES_PARAM().BackBufferHeight;
+  desc.Format = GET_PRES_PARAM().BackBufferFormat;
+  desc.MultiSampleType = GET_PRES_PARAM().MultiSampleType;
+  desc.MultiSampleQuality = GET_PRES_PARAM().MultiSampleQuality;
+  desc.Usage = D3DUSAGE_RENDERTARGET;
+  desc.Pool = D3DPOOL_DEFAULT;
+  desc.Type = D3DRTYPE_SURFACE;
+
+  // Insert our own IDirect3DSurface9 interface implementation
+  Direct3DSurface9_LSS* pLssSurface = trackWrapper(new Direct3DSurface9_LSS(this, desc));
+  pRenderTarget = (IDirect3DSurface9*) pLssSurface;
+
   m_pImplicitRenderTarget = bridge_cast<Direct3DSurface9_LSS*>(pRenderTarget);
   {
     ClientMessage c(Commands::IDirect3DDevice9Ex_LinkBackBuffer, getId());
@@ -3822,14 +3830,21 @@ template<bool EnableSync>
 void Direct3DDevice9Ex_LSS<EnableSync>::initImplicitDepthStencil() {
   assert(GET_PRES_PARAM().EnableAutoDepthStencil);
   IDirect3DSurface9* pShadowDepthBuffer = nullptr;
-  CreateDepthStencilSurface(GET_PRES_PARAM().BackBufferWidth,
-                            GET_PRES_PARAM().BackBufferHeight,
-                            GET_PRES_PARAM().AutoDepthStencilFormat,
-                            GET_PRES_PARAM().MultiSampleType,
-                            GET_PRES_PARAM().MultiSampleQuality,
-                            false,
-                            &pShadowDepthBuffer,
-                            nullptr);
+
+  // Creating a place-holder surface
+  D3DSURFACE_DESC desc;
+  desc.Width = GET_PRES_PARAM().BackBufferWidth;
+  desc.Height = GET_PRES_PARAM().BackBufferHeight;
+  desc.Format = GET_PRES_PARAM().AutoDepthStencilFormat;
+  desc.MultiSampleType = GET_PRES_PARAM().MultiSampleType;
+  desc.MultiSampleQuality = GET_PRES_PARAM().MultiSampleQuality;
+  desc.Usage = D3DUSAGE_DEPTHSTENCIL;
+  desc.Pool = D3DPOOL_DEFAULT;
+  desc.Type = D3DRTYPE_SURFACE;
+
+  Direct3DSurface9_LSS* pLssSurface = trackWrapper(new Direct3DSurface9_LSS(this, desc));
+  pShadowDepthBuffer = (IDirect3DSurface9*) pLssSurface;
+
   m_pImplicitDepthStencil = bridge_cast<Direct3DSurface9_LSS*>(pShadowDepthBuffer);
   {
     ClientMessage c(Commands::IDirect3DDevice9Ex_LinkAutoDepthStencil, getId());

@@ -62,7 +62,7 @@ void Direct3DVolume9_LSS::onDestroy() {
   // are completely owned and managed by their parent container, and so only need
   // to be unlinked from x64 counterpart to prevent hash collisions at server side.
   const auto command = isStandalone() ? Commands::IDirect3DVolume9_Destroy :
-    Commands::Bridge_UnlinkResource;
+    Commands::Bridge_UnlinkVolumeResource;
 
   ClientMessage { command, getId() };
 }

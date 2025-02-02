@@ -2785,7 +2785,12 @@ void ProcessDeviceCommandQueue() {
         gpD3DResources.erase(pHandle);
         break;
       }
-
+      case Bridge_UnlinkVolumeResource:
+      {
+        GET_HND(pHandle);
+        gpD3DVolumes.erase(pHandle);
+        break;
+      }
       /*
        * BridgeApi commands
        */

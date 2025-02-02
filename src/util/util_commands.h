@@ -59,7 +59,7 @@ namespace Commands {
     // desposed of, or known to be released before the unlink to
     // prevent leaks.
     Bridge_UnlinkResource,
-
+    Bridge_UnlinkVolumeResource,
     // These are not actually official D3D9 API calls.
     IDirect3DDevice9Ex_LinkSwapchain,
     IDirect3DDevice9Ex_LinkBackBuffer,
@@ -493,6 +493,7 @@ namespace Commands {
     case Bridge_SharedHeap_Dealloc: return "SharedHeap_Dealloc";
     
     case Bridge_UnlinkResource: return "Bridge_UnlinkResource";
+    case Bridge_UnlinkVolumeResource: return "Bridge_UnlinkVolumeResource";
 
     case IDirect3DDevice9Ex_LinkSwapchain: return "IDirect3DDevice9Ex_LinkSwapchain";
     case IDirect3DDevice9Ex_LinkBackBuffer: return "IDirect3DDevice9Ex_LinkBackBuffer";

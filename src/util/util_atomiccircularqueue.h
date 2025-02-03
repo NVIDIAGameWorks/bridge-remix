@@ -87,6 +87,7 @@ namespace bridge_util {
     // Push object to queue
     Result push(const T& obj) {
       ULONGLONG start = 0, curTick;
+      const DWORD timeoutMS = GlobalOptions::getCommandTimeout();
       do {
         const auto currentRead = m_read->load(std::memory_order_relaxed);
         const auto nextRead = queueIdxInc(currentRead);
@@ -103,7 +104,7 @@ namespace bridge_util {
 
         curTick = GetTickCount64();
         start = start > 0 ? start : curTick;
-      } while (start + GlobalOptions::getCommandTimeout() > curTick);
+      } while (timeoutMS == 0 || start + timeoutMS > curTick);
 
       return Result::Failure;
     }

@@ -71,7 +71,7 @@ void Direct3DDevice9Ex_LSS<EnableSync>::onDestroy() {
 }
 
 template<bool EnableSync>
-void Direct3DDevice9Ex_LSS<EnableSync>::releaseInternalObjects() {
+void Direct3DDevice9Ex_LSS<EnableSync>::releaseInternalObjects(bool resetState) {
   // Take references first so that the device won't be
   // destroyed unintentionally and to prevent releaseInternalObjects()
   // recursion.
@@ -82,23 +82,25 @@ void Direct3DDevice9Ex_LSS<EnableSync>::releaseInternalObjects() {
 
   destroyImplicitObjects();
 
-  for (auto& texture : m_state.textures) {
-    texture.reset(nullptr);
-  }
+  if (resetState) {
+    for (auto& texture : m_state.textures) {
+      texture.reset(nullptr);
+    }
 
-  for (auto& rt : m_state.renderTargets) {
-    rt.reset(nullptr);
-  }
+    for (auto& rt : m_state.renderTargets) {
+      rt.reset(nullptr);
+    }
 
-  for (auto& st : m_state.streams) {
-    st.reset(nullptr);
-  }
+    for (auto& st : m_state.streams) {
+      st.reset(nullptr);
+    }
 
-  m_state.indices.reset(nullptr);
-  m_state.depthStencil.reset(nullptr);
-  m_state.vertexShader.reset(nullptr);
-  m_state.pixelShader.reset(nullptr);
-  m_state.vertexDecl.reset(nullptr);
+    m_state.indices.reset(nullptr);
+    m_state.depthStencil.reset(nullptr);
+    m_state.vertexShader.reset(nullptr);
+    m_state.pixelShader.reset(nullptr);
+    m_state.vertexDecl.reset(nullptr);
+  }
 
   for (uint32_t n = 0; n < implicitRefCnt; n++) {
     D3DBase::Release();
@@ -481,47 +483,19 @@ template<bool EnableSync>
 HRESULT Direct3DDevice9Ex_LSS<EnableSync>::Present(CONST RECT* pSourceRect, CONST RECT* pDestRect, HWND hDestWindowOverride, CONST RGNDATA* pDirtyRegion) {
   ZoneScoped;
   LogFunctionCall();
-#ifdef ENABLE_PRESENT_SEMAPHORE_TRACE
-  Logger::trace(format_string("Present(): ClientMessage counter is at %d.", ClientMessage::get_counter()));
-#endif
-  ClientMessage::reset_counter();
-  gSceneState = WaitBeginScene;
-
-  const auto hresult = D3D_OK;
 
   // If the bridge was disabled in the meantime for some reason we want to bail
   // out here so we don't spend time waiting on the Present semaphore or trying
   // to send keyboard state to the server.
   if (!gbBridgeRunning) {
-    return hresult;
+    return D3D_OK;
   }
 
-  if(remixapi::g_bInterfaceInitialized && remixapi::g_presentCallback) {
+  if (remixapi::g_bInterfaceInitialized && remixapi::g_presentCallback) {
     remixapi::g_presentCallback();
   }
 
-
-  if (SUCCEEDED(hresult)) {
-    BRIDGE_DEVICE_LOCKGUARD();
-
-    // Send present first
-    {
-      ClientMessage c(Commands::IDirect3DDevice9Ex_Present, getId());
-      c.send_data(sizeof(RECT), (void*) pSourceRect);
-      c.send_data(sizeof(RECT), (void*) pDestRect);
-      c.send_data((uint32_t) hDestWindowOverride);
-      c.send_data(sizeof(RGNDATA), (void*) pDirtyRegion);
-    }
-
-    const auto syncResult = syncOnPresent();
-    if (syncResult == ERROR_SEM_TIMEOUT) {
-      return ERROR_SEM_TIMEOUT;
-    }
-  }
-
-  FrameMark;
-
-  return hresult;
+  return m_pSwapchain->Present(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion, 0);
 }
 
 template<bool EnableSync>
@@ -3241,7 +3215,15 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::PresentEx(CONST RECT* pSourceRect, CO
   ZoneScoped;
   LogMissingFunctionCall();
   assert(m_ex);
-  return D3D_OK;
+
+  // If the bridge was disabled in the meantime for some reason we want to bail
+  // out here so we don't spend time waiting on the Present semaphore or trying
+  // to send keyboard state to the server.
+  if (!gbBridgeRunning) {
+    return D3D_OK;
+  }
+
+  return m_pSwapchain->Present(pSourceRect, pDestRect, hDestWindowOverride, pDirtyRegion, dwFlags);
 }
 
 template<bool EnableSync>
@@ -3442,8 +3424,42 @@ template<bool EnableSync>
 HRESULT Direct3DDevice9Ex_LSS<EnableSync>::ResetEx(D3DPRESENT_PARAMETERS* pPresentationParameters, D3DDISPLAYMODEEX* pFullscreenDisplayMode) {
   ZoneScoped;
   assert(m_ex);
-  LogMissingFunctionCall();
-  return D3D_OK;
+  LogFunctionCall();
+  HRESULT res = S_OK;
+  {
+    BRIDGE_DEVICE_LOCKGUARD();
+    // Clear all device state and release implicit/internal objects
+    releaseInternalObjects(false);
+    
+    const auto presParam = Direct3DSwapChain9_LSS::sanitizePresentationParameters(*pPresentationParameters, getCreateParams());
+    m_presParams = presParam;
+    WndProc::unset();
+    WndProc::set(getWinProcHwnd());
+    // Tell Server to do the Reset
+    size_t currentUID = 0;
+    {
+      ClientMessage c(Commands::IDirect3DDevice9Ex_ResetEx, getId());
+      currentUID = c.get_uid();
+      c.send_data(sizeof(D3DPRESENT_PARAMETERS), &presParam);
+      c.send_data(sizeof(D3DDISPLAYMODEEX), pFullscreenDisplayMode);
+    }
+
+    // Perform an WAIT_FOR_OPTIONAL_SERVER_RESPONSE but don't return since we still have work to do.
+    if (GlobalOptions::getSendAllServerResponses()) {
+      const uint32_t timeoutMs = GlobalOptions::getAckTimeout();
+      if (Result::Success != DeviceBridge::waitForCommand(Commands::Bridge_Response, timeoutMs, nullptr, true, currentUID)) {
+        Logger::err("Direct3DDevice9Ex_LSS::ResetEx() failed with : no response from server.");
+      }
+      res = (HRESULT) DeviceBridge::get_data();
+      DeviceBridge::pop_front();
+    }
+
+    // Reset swapchain and link server backbuffer/depth buffer after the server reset its swapchain, or we will link to the old backbuffer/depth resources
+    initImplicitObjects(presParam);
+    // Keeping a track of previous present parameters, to detect and handle mode changes
+    m_previousPresentParams = *pPresentationParameters;
+  }
+  return res;
 }
 
 template<bool EnableSync>
@@ -3861,6 +3877,7 @@ void Direct3DDevice9Ex_LSS<EnableSync>::destroyImplicitObjects() {
   assert(rtRefCnt == 0 && "Implicit RenderTarget has not been released!");
   m_pImplicitRenderTarget = nullptr;
   --m_implicitRefCnt;
+  m_state.renderTargets[0].reset(nullptr);
 
   // Release implicit DepthStencil
   if (GET_PRES_PARAM().EnableAutoDepthStencil) {
@@ -3868,6 +3885,7 @@ void Direct3DDevice9Ex_LSS<EnableSync>::destroyImplicitObjects() {
     assert(dsRefCnt == 0 && "Implicit DepthStencil has not been released!");
     m_pImplicitDepthStencil = nullptr;
     --m_implicitRefCnt;
+    m_state.depthStencil.reset(nullptr);
   }
 
   const size_t nBackBuf = GET_PRES_PARAM().BackBufferCount;

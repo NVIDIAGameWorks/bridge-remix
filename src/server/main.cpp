@@ -651,14 +651,37 @@ void ProcessDeviceCommandQueue() {
           done = true;
         }
 
-        UINT cnt = pD3DDevice->GetNumberOfSwapChains();
-        for (int iSwapChain = 0; iSwapChain < cnt; iSwapChain++) {
-          IDirect3DSwapChain9* pSwapChain = nullptr;
-          pD3DDevice->GetSwapChain(iSwapChain, &pSwapChain);
-          pSwapChain->Release();
-        }
+        //Release implicit swapchain
+        IDirect3DSwapChain9* pSwapChain = nullptr;
+        pD3DDevice->GetSwapChain(0, &pSwapChain);
+        pSwapChain->Release();
 
         const auto hresult = pD3DDevice->Reset(&PresentationParameters);
+        assert(SUCCEEDED(hresult));
+        SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
+        break;
+      }
+      case IDirect3DDevice9Ex_ResetEx:
+      {
+        GET_RES(pD3DDevice, gpD3DDevices);
+        uint32_t* rawPresentationParameters = nullptr;
+        DeviceBridge::get_data((void**) &rawPresentationParameters);
+
+        D3DDISPLAYMODEEX* pFullscreenDisplayMode = nullptr;
+        PULL_DATA(sizeof(D3DDISPLAYMODEEX), pFullscreenDisplayMode);
+
+        D3DPRESENT_PARAMETERS PresentationParameters = getPresParamFromRaw(rawPresentationParameters);
+        if (!PresentationParameters.Windowed && !bDxvkModuleLoaded) {
+          bridge_util::Logger::err("Fullscreen is not yet supported for non-DXVK uses of the bridge. This is not recoverable. Exiting.");
+          done = true;
+        }
+
+        //Release implicit swapchain
+        IDirect3DSwapChain9* pSwapChain = nullptr;
+        pD3DDevice->GetSwapChain(0, &pSwapChain);
+        pSwapChain->Release();
+
+        const auto hresult = ((IDirect3DDevice9Ex*) pD3DDevice)->ResetEx(&PresentationParameters, pFullscreenDisplayMode);
         assert(SUCCEEDED(hresult));
         SEND_OPTIONAL_SERVER_RESPONSE(hresult, currentUID);
         break;

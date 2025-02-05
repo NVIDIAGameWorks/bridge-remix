@@ -58,7 +58,7 @@ public:
 
 protected:
   // Releases the internal objects, if any.
-  void releaseInternalObjects();
+  void releaseInternalObjects(bool resetState = true);
   void onDestroy() override;
 
 public:

@@ -171,7 +171,7 @@ DECL_BRIDGE_FUNC(bridge_util::Result, waitForCommand, const Commands::D3D9Comman
   uint32_t attemptNum = 0;
   do {
     Result result;
-    Header header = getReaderChannel().commands->peek(result, peekTimeoutMS);
+    Header header = getReaderChannel().commands->peek(result, peekTimeoutMS, pbEarlyOutSignal);
 
     switch (result) {
 

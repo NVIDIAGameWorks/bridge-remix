@@ -116,7 +116,7 @@ namespace bridge_util {
 
     // Returns a ref to the first element in the queue
     // Note: Blocks if the queue is empty
-    const T& peek(Result& result, const DWORD timeoutMS = 0) const {
+    const T& peek(Result& result, const DWORD timeoutMS = 0, std::atomic<bool>* const pbEarlyOutSignal = nullptr) const {
       ULONGLONG start = 0, curTick;
       do {
         const auto currentWrite = m_write->load(std::memory_order_relaxed);
@@ -131,6 +131,11 @@ namespace bridge_util {
 
         curTick = GetTickCount64();
         start = start > 0 ? start : curTick;
+        
+        if (pbEarlyOutSignal && pbEarlyOutSignal->load()) {
+          result = Result::Timeout;
+          return m_default;
+        }
       } while (timeoutMS == 0 || start + timeoutMS > curTick);
 
       result = Result::Timeout;
@@ -140,7 +145,7 @@ namespace bridge_util {
 
     // Returns a copy to the first element in queue, AND removes it
     // Note: Blocks if queue is empty
-    const T& pull(Result& result, const DWORD timeoutMS = 0) {
+    const T& pull(Result& result, const DWORD timeoutMS = 0, std::atomic<bool>* const pbEarlyOutSignal = nullptr) {
       ULONGLONG start = 0, curTick;
       do {
         const auto currentWrite = m_write->load(std::memory_order_relaxed);
@@ -156,6 +161,11 @@ namespace bridge_util {
 
         curTick = GetTickCount64();
         start = start > 0 ? start : curTick;
+
+        if (pbEarlyOutSignal && pbEarlyOutSignal->load()) {
+          result = Result::Timeout;
+          return m_default;
+        }
       } while (timeoutMS == 0 || start + timeoutMS > curTick);
 
       return m_default;

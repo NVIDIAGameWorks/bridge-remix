@@ -2272,6 +2272,8 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetSoftwareVertexProcessing(BOOL bSof
   LogFunctionCall();
   {
     BRIDGE_DEVICE_LOCKGUARD();
+    if (m_bSoftwareVtxProcessing == bSoftware)
+      return D3D_OK;
     m_bSoftwareVtxProcessing = bSoftware;
   }
   UID currentUID = 0;
@@ -2283,6 +2285,8 @@ HRESULT Direct3DDevice9Ex_LSS<EnableSync>::SetSoftwareVertexProcessing(BOOL bSof
   WAIT_FOR_SERVER_RESPONSE("SetSoftwareVertexProcessing()", D3DERR_INVALIDCALL, currentUID);
 
   HRESULT hresult = DeviceBridge::get_data();
+  DeviceBridge::pop_front();
+
   return hresult;
 }
 

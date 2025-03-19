@@ -47,6 +47,8 @@ namespace Commands {
     RemixApi_DestroyLight,
     RemixApi_DrawLightInstance,
     RemixApi_SetConfigVariable,
+    RemixApi_AddTextureHash,
+    RemixApi_RemoveTextureHash,
     RemixApi_CreateD3D9,
     RemixApi_RegisterDevice,
 

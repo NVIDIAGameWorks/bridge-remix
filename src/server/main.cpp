@@ -3127,6 +3127,8 @@ void ProcessDeviceCommandQueue() {
       }
 
       case RemixApi_SetConfigVariable:
+      case RemixApi_AddTextureHash:
+      case RemixApi_RemoveTextureHash:
       {
         void* var_ptr = nullptr;
         const uint32_t var_size = DeviceBridge::getReaderChannel().data->pull(&var_ptr);
@@ -3136,7 +3138,14 @@ void ProcessDeviceCommandQueue() {
         const uint32_t value_size = DeviceBridge::getReaderChannel().data->pull(&value_ptr);
         std::string value_str((const char*) value_ptr, value_size);
 
-        remixapi::g_remix.SetConfigVariable(var_str.c_str(), value_str.c_str());
+        switch (rpcHeader.command)
+        {
+        default:
+        case RemixApi_SetConfigVariable: remixapi::g_remix.SetConfigVariable(var_str.c_str(), value_str.c_str()); break;
+        case RemixApi_AddTextureHash: remixapi::g_remix.AddTextureHash(var_str.c_str(), value_str.c_str()); break;
+        case RemixApi_RemoveTextureHash: remixapi::g_remix.RemoveTextureHash(var_str.c_str(), value_str.c_str()); break;
+        }
+        
         break;
       }
 

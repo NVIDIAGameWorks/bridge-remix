@@ -397,7 +397,7 @@ private:
     // Behaves the same as disableTimeoutsWhenDebugging, except that it does not require a debugger to be
     // attached. This is used to cover certain scenarios where an inactive game window may be running in
     // the background without actively rendering any frames for an undetermined amount of time.
-    disableTimeouts = bridge_util::Config::getOption<bool>("disableTimeouts", false);
+    disableTimeouts = bridge_util::Config::getOption<bool>("disableTimeouts", true);
 
     // Rather than copying an entire index/vertex/etc. buffer on every buffer-type Unlock(), the bridge instead
     // directly stores all buffer data into a shared memory "heap" that both Client and Server are able to

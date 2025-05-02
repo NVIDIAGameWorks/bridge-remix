@@ -1,3 +1,7 @@
+# DEPRECATED:
+
+This repository has been deprecated.  The code has been moved to the `bridge` folder of `dxvk-remix` [repo on GitHub](https://github.com/NVIDIAGameWorks/dxvk-remix)
+
 # NVIDIA RTX Remix Bridge
 
 [![Build Status](https://github.com/NVIDIAGameWorks/bridge-remix/actions/workflows/build.yml/badge.svg)](https://github.com/NVIDIAGameWorks/bridge-remix/actions/workflows/build.yml)
